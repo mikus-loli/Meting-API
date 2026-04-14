@@ -2,3 +2,7 @@ node_modules
 dist
 .vscode
 .vercel
+.git
+.github
+data
+*.md
