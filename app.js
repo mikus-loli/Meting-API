@@ -1,5 +1,9 @@
 import api from './src/service/api.js'
 import { handler } from './src/template.js'
+import { adminPageHandler } from './src/admin/page.js'
+import adminRoutes from './src/admin/api.js'
+import store from './src/admin/store.js'
+import cookieMonitor from './src/admin/cookie-monitor.js'
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { cors } from 'hono/cors'
@@ -10,6 +14,25 @@ const app = new Hono()
 
 app.use('*', cors())
 app.use('*', logger())
+
+adminRoutes(app)
+
+const getAdminPath = () => {
+    const storedPath = store.getAdminPath()
+    return storedPath || config.ADMIN_PATH
+}
+
+app.use('*', async (c, next) => {
+    const adminPath = getAdminPath()
+    const path = c.req.path
+    
+    if (path === '/' + adminPath || path.startsWith('/' + adminPath + '/')) {
+        return adminPageHandler(c)
+    }
+    
+    await next()
+})
+
 app.get('/api', api)
 app.get('/test', handler)
 app.get('/', (c) => {
@@ -43,5 +66,7 @@ app.get('/', (c) => {
                     </html>`
     )
 })
+
+cookieMonitor.start()
 
 export default app

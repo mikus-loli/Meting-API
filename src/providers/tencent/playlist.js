@@ -2,12 +2,27 @@ import config from "../../config.js"
 import { get_song_url } from "./song.js"
 import { changeUrlQuery } from "./util.js"
 
+const parseCookieString = (cookieString) => {
+    if (!cookieString) return {}
+    const cookies = {}
+    cookieString.split(';').forEach(item => {
+        const [key, value] = item.trim().split('=')
+        if (key && value) {
+            cookies[key] = value
+        }
+    })
+    return cookies
+}
+
 const get_playlist = async (id, cookie = '') => {
+    const cookieObj = parseCookieString(cookie)
+    const uin = cookieObj.uin || '0'
+    
     const data = {
         type: 1,
         utf8: 1,
         disstid: id,
-        loginUin: 0,
+        loginUin: uin,
         format: 'json'
     }
 
@@ -26,7 +41,7 @@ const get_playlist = async (id, cookie = '') => {
     let jsonp
     if (config.OVERSEAS) {
         const ids = result.map(song => song.songmid)
-        jsonp = await get_song_url(ids.join(','))
+        jsonp = await get_song_url(ids.join(','), cookie)
     }
     const res = await Promise.all(result.map(async song => {
         let song_info = {
@@ -44,8 +59,5 @@ const get_playlist = async (id, cookie = '') => {
     return res;
 }
 
-
-// const res = await get_playlist('7326220405')
-// console.log(res)
 
 export { get_playlist }

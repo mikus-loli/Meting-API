@@ -1,7 +1,5 @@
 import tencent from "./tencent/index.js"
 import netease from './netease/index.js'
-import ytmusic from './ytmusic/index.js'
-import spotify from "./spotify/index.js"
 
 class Providers {
 
@@ -10,8 +8,6 @@ class Providers {
 
         tencent.register(this)
         netease.register(this)
-        ytmusic.register(this)
-        spotify.register(this)
 
     }
 

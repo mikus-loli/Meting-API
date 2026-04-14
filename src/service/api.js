@@ -1,5 +1,18 @@
 import Providers from "../providers/index.js"
 import { format as lyricFormat, get_url } from "../util.js"
+import store from "../admin/store.js"
+
+const parseCookieString = (cookieString) => {
+    if (!cookieString) return {}
+    const cookies = {}
+    cookieString.split(';').forEach(item => {
+        const [key, value] = item.trim().split('=')
+        if (key && value) {
+            cookies[key] = value
+        }
+    })
+    return cookies
+}
 
 export default async (ctx) => {
 
@@ -15,7 +28,13 @@ export default async (ctx) => {
         return ctx.json({ status: 400, message: 'server 参数不合法', param: { server, type, id } })
     }
 
-    let data = await p.get(server).handle(type, id)
+    let cookie = ''
+    const storedCookie = store.getActiveCookie(server)
+    if (storedCookie) {
+        cookie = storedCookie.cookie
+    }
+
+    let data = await p.get(server).handle(type, id, cookie)
 
     if (type === 'url') {
         let url = data
@@ -39,11 +58,9 @@ export default async (ctx) => {
     }
 
 
-    // json 类型数据填充api
     return ctx.json(data.map(x => {
         for (let i of ['url', 'pic', 'lrc']) {
             const _ = String(x[i])
-            // 正常对象_均为id，以下例外不用填充：1.@开头/size为0=>qq音乐jsonp 2.已存在完整链接
             if (!_.startsWith('@') && !_.startsWith('http') && _.length > 0) {
                 x[i] = `${get_url(ctx)}?server=${server}&type=${i}&id=${_}`
             }

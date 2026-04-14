@@ -8,19 +8,19 @@ const handle = async (type, id, cookie = '') => {
     let result;
     switch (type) {
         case 'lrc':
-            result = await get_lyric(id)
+            result = await get_lyric(id, cookie)
             break
         case 'pic':
-            result = await get_pic(id)
+            result = await get_pic(id, cookie)
             break
         case 'url':
-            result = await get_song_url(id)
+            result = await get_song_url(id, cookie)
             break
         case 'song':
-            result = await get_song_info(id)
+            result = await get_song_info(id, cookie)
             break
         case 'playlist':
-            result = await get_playlist(id)
+            result = await get_playlist(id, cookie)
             break
         default:
             return -1;

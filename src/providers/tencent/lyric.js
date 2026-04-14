@@ -34,7 +34,4 @@ const get_lyric = async (songmid, cookie = '') => {
 }
 
 
-// const res = await get_lyric('000i26Sh1ZyiNU')
-// console.log(res)
-
 export { get_lyric }

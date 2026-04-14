@@ -1,8 +1,6 @@
 import { request } from "./util.js"
 
-export const get_lyric = async (id, cookie) => {
-    // query.cookie.os = 'ios'
-
+export const get_lyric = async (id, cookie = '') => {
     const data = {
         id: id,
         tv: -1,
@@ -16,6 +14,7 @@ export const get_lyric = async (id, cookie) => {
         data,
         {
             crypto: 'api',
+            cookie: cookie || {}
         },
     )
 
@@ -24,6 +23,3 @@ export const get_lyric = async (id, cookie) => {
         tlyric: res.tlyric?.lyric || ''
     }
 }
-
-// const res = await get_lyric('2015217630')
-// console.log(res)

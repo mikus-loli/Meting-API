@@ -9,12 +9,6 @@ const app = new Hono()
 app.use('*', cors())
 app.get('/api', api)
 
-// test('examples match providers', () => {
-//     const p = new Providers()
-//     const provider_list = p.get_provider_list()
-//     expect(new Set(provider_list)).toEqual(new Set(Object.keys(examples)))
-// })
-
 test('test provider support_type', () => {
     const p = new Providers()
     Object.keys(examples).map(provider_name => {
@@ -25,14 +19,8 @@ test('test provider support_type', () => {
     })
 })
 
-const YT_API = globalThis?.Deno?.env?.get("YT_API") || globalThis?.process?.env?.YT_API
-
 test('test api', async () => {
     for (const provider_name in examples) {
-        if (["ytmusic", "spotify"].includes(provider_name) && !YT_API) {
-            console.log("external api not found, skipping...")
-            continue
-        }
         for (const type in examples[provider_name]) {
 
             const url = `http://localhost:3000/api?server=${provider_name}&type=${type}&id=${examples[provider_name][type].value}`

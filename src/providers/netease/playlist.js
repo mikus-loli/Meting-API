@@ -7,11 +7,10 @@ export const get_playlist = async (id, cookie = '') => {
         n: 100000,
         s: 8,
     }
-    //不放在data里面避免请求带上无用的数据
     let limit = 200 || Infinity
     let offset = 0 || 0
 
-    let res = await request('POST', `https://music.163.com/api/v6/playlist/detail`, data, { crypto: 'api', })
+    let res = await request('POST', `https://music.163.com/api/v6/playlist/detail`, data, { crypto: 'api', cookie: cookie || {} })
 
     let trackIds = res.playlist.trackIds
 
@@ -29,7 +28,7 @@ export const get_playlist = async (id, cookie = '') => {
         'POST',
         `https://music.163.com/api/v3/song/detail`,
         idsData,
-        { crypto: 'weapi' }
+        { crypto: 'weapi', cookie: cookie || {} }
     )
 
     res = map_song_list(res)
@@ -37,7 +36,3 @@ export const get_playlist = async (id, cookie = '') => {
     return res
 
 }
-
-// const res = await get_playlist(2787254569)
-// console.log(res)
-

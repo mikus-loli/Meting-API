@@ -1,11 +1,24 @@
 import { changeUrlQuery } from "./util.js"
 import config from "../../config.js"
 
+const parseCookieString = (cookieString) => {
+    if (!cookieString) return {}
+    const cookies = {}
+    cookieString.split(';').forEach(item => {
+        const [key, value] = item.trim().split('=')
+        if (key && value) {
+            cookies[key] = value
+        }
+    })
+    return cookies
+}
+
 export const get_song_url = async (id, cookie = '') => {
 
     id = id.split(',')
-    let uin = ''
-    let qqmusic_key = ''
+    const cookieObj = parseCookieString(cookie)
+    let uin = cookieObj.uin || ''
+    let qqmusic_key = cookieObj.qqmusic_key || ''
     const typeObj = {
         s: 'M500',
         e: '.mp3',
@@ -21,7 +34,6 @@ export const get_song_url = async (id, cookie = '') => {
             module: 'vkey.GetVkeyServer',
             method: 'CgiGetVkey',
             param: {
-                // filename: file,
                 guid: guid,
                 songmid: id,
                 songtype: [0],
@@ -68,7 +80,6 @@ export const get_song_url = async (id, cookie = '') => {
     let result = await fetch(url);
 
     result = await result.json()
-    // console.log(result)
     if (result.req_0 && result.req_0.data && result.req_0.data.midurlinfo) {
         purl = result.req_0.data.midurlinfo[0].purl;
     }
@@ -78,7 +89,6 @@ export const get_song_url = async (id, cookie = '') => {
         result.req_0.data.sip[0];
 
     const res = `${domain}${purl}`.replace('http://', 'https://')
-    // console.log(res);
     return res;
 
 }
@@ -112,7 +122,6 @@ export const get_song_info = async (id, cookie = '') => {
         lrc: id,
         songmid: id,
     }
-    // console.log(song_info)
     return [song_info]
 }
 
@@ -120,12 +129,3 @@ export const get_pic = async (id, cookie = '') => {
     const info = await get_song_info(id, cookie)
     return info[0].pic
 }
-
-// const res = await get_song_url('002Rnpvi058Qdm');
-// console.log(res)
-
-// const res = await get_song_url('002Rnpvi058Qdm,000i26Sh1ZyiNU');
-// console.log(res)
-
-// const res = await get_song_info('002Rnpvi058Qdm');
-// console.log(res)

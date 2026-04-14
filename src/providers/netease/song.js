@@ -19,7 +19,7 @@ export const get_song_url = async (id, cookie = '') => {
             {
                 crypto: 'eapi',
                 url: '/api/song/enhance/player/url/v1',
-                cookie: {}
+                cookie: cookie || {}
             },
         )
     } catch (e) {
@@ -38,9 +38,8 @@ export const get_song_info = async (id, cookie = '') => {
     }
     let res = await request('POST', `https://music.163.com/api/v3/song/detail`, data, {
         crypto: 'weapi',
+        cookie: cookie || {}
     })
-
-    // console.log(res)
 
     if (!res.songs) {
         throw res
@@ -49,8 +48,3 @@ export const get_song_info = async (id, cookie = '') => {
     res = map_song_list(res)
     return res
 }
-
-
-// const res = await get_song_info('1874976923');
-// const res = await get_song_url('1874976923');
-// console.log(res)
