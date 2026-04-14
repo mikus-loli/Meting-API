@@ -15,13 +15,17 @@ ENV UID=${UID}
 ENV GID=${GID}
 ENV PORT=${PORT}
 
-RUN addgroup -g ${GID} --system meting \
+RUN apk add --no-cache su-exec \
+    && addgroup -g ${GID} --system meting \
     && adduser -G meting --system -D -s /bin/sh -u ${UID} meting
 
 COPY --from=builder /app /app
 
-RUN chown -R meting:meting /app
-USER meting
+RUN chmod +x /app/docker-entrypoint.sh \
+    && mkdir -p /app/data \
+    && chown -R meting:meting /app
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 EXPOSE ${PORT}
 
