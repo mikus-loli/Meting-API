@@ -172,7 +172,7 @@ app.get('/', (c) => {
         }
         .link-card:hover { border-color: var(--primary); background: var(--primary-bg); transform: translateY(-2px); box-shadow: var(--shadow); }
         .link-icon { font-size: 24px; flex-shrink: 0; }
-        .link-info { flex: 1; min-width: 0; }
+        .link-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .link-title { font-size: 14px; font-weight: 700; color: var(--text); }
         .link-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
         .link-arrow { color: var(--text-muted); font-size: 14px; transition: var(--transition); }
