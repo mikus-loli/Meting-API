@@ -131,12 +131,17 @@ export const request = async (method, url, data = {}, options) => {
                 .padStart(4, '0')
                 } `,
         }
-        if (cookie.MUSIC_U) header['MUSIC_U'] = cookie.MUSIC_U
-        if (cookie.MUSIC_A) header['MUSIC_A'] = cookie.MUSIC_A
-        headers['Cookie'] = Object.keys(header)
+        // 合并所有 Cookie 字段，确保 VIP 信息完整传递
+        const combinedCookie = {
+            ...cookie,
+            ...header
+        }
+        if (combinedCookie.MUSIC_U) header['MUSIC_U'] = combinedCookie.MUSIC_U
+        if (combinedCookie.MUSIC_A) header['MUSIC_A'] = combinedCookie.MUSIC_A
+        headers['Cookie'] = Object.keys(combinedCookie)
             .map(
                 (key) =>
-                    encodeURIComponent(key) + '=' + encodeURIComponent(header[key]),
+                    encodeURIComponent(key) + '=' + encodeURIComponent(combinedCookie[key]),
             )
             .join('; ')
         data.header = header
