@@ -34,10 +34,30 @@ const checkNeteaseVipAbility = async (cookieString) => {
         )
         
         if (res.data && res.data[0]) {
-            const url = res.data[0].url
-            if (url && !url.includes('try')) {
-                return true
+            const songData = res.data[0]
+            const url = songData.url
+            
+            if (!url) {
+                return false
             }
+            
+            if (url.includes('try') || url.includes('trial')) {
+                return false
+            }
+            
+            if (songData.freeTrialInfo) {
+                return false
+            }
+            
+            if (songData.freePartInfo) {
+                return false
+            }
+            
+            if (songData.level === 'trial' || songData.level === 'try') {
+                return false
+            }
+            
+            return true
         }
         return false
     } catch (e) {
