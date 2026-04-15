@@ -23,6 +23,124 @@ const MONITOR_LOGS_FILE = 'monitor_logs.json'
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCKOUT_DURATION = 15 * 60 * 1000
 
+const generateSecret = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+    let secret = ''
+    const bytes = crypto.getRandomValues(new Uint8Array(20))
+    for (let i = 0; i < 16; i++) {
+        secret += chars[bytes[i] % chars.length]
+    }
+    return secret
+}
+
+const generateTOTP = (secret, timeStep = 30) => {
+    const key = base32Decode(secret)
+    const counter = Math.floor(Date.now() / 1000 / timeStep)
+    const counterBytes = new Uint8Array(8)
+    let tmp = counter
+    for (let i = 7; i >= 0; i--) {
+        counterBytes[i] = tmp & 0xff
+        tmp = Math.floor(tmp / 256)
+    }
+    const hmac = computeHMACSHA1(key, counterBytes)
+    const offset = hmac[hmac.length - 1] & 0x0f
+    const binary = ((hmac[offset] & 0x7f) << 24) |
+        ((hmac[offset + 1] & 0xff) << 16) |
+        ((hmac[offset + 2] & 0xff) << 8) |
+        (hmac[offset + 3] & 0xff)
+    const otp = binary % 1000000
+    return otp.toString().padStart(6, '0')
+}
+
+const base32Decode = (str) => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+    str = str.replace(/=+$/, '')
+    const bytes = []
+    let buffer = 0, bitsLeft = 0
+    for (let i = 0; i < str.length; i++) {
+        const val = alphabet.indexOf(str[i].toUpperCase())
+        if (val === -1) continue
+        buffer = (buffer << 5) | val
+        bitsLeft += 5
+        if (bitsLeft >= 8) {
+            bitsLeft -= 8
+            bytes.push((buffer >> bitsLeft) & 0xff)
+        }
+    }
+    return new Uint8Array(bytes)
+}
+
+const computeHMACSHA1 = (key, message) => {
+    const blockSize = 64
+    let keyBlock = key
+    if (keyBlock.length > blockSize) {
+        const hash = new Uint8Array(20)
+        keyBlock = hash
+    }
+    if (keyBlock.length < blockSize) {
+        const padded = new Uint8Array(blockSize)
+        padded.set(keyBlock)
+        keyBlock = padded
+    }
+    const ipad = new Uint8Array(blockSize)
+    const opad = new Uint8Array(blockSize)
+    for (let i = 0; i < blockSize; i++) {
+        ipad[i] = keyBlock[i] ^ 0x36
+        opad[i] = keyBlock[i] ^ 0x5c
+    }
+    const innerData = new Uint8Array(blockSize + message.length)
+    innerData.set(ipad)
+    innerData.set(message, blockSize)
+    const innerHash = sha1Digest(innerData)
+    const outerData = new Uint8Array(blockSize + 20)
+    outerData.set(opad)
+    outerData.set(innerHash, blockSize)
+    return sha1Digest(outerData)
+}
+
+const sha1Digest = (data) => {
+    const h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0
+    const msgLen = data.length
+    const bitLen = msgLen * 8
+    const paddedLen = Math.ceil((msgLen + 9) / 64) * 64
+    const padded = new Uint8Array(paddedLen)
+    padded.set(data)
+    padded[msgLen] = 0x80
+    const view = new DataView(padded.buffer)
+    view.setUint32(paddedLen - 4, bitLen, false)
+    let a = h0, b = h1, c = h2, d = h3, e = h4
+    const w = new Int32Array(80)
+    for (let offset = 0; offset < paddedLen; offset += 64) {
+        for (let i = 0; i < 16; i++) {
+            w[i] = view.getInt32(offset + i * 4, false)
+        }
+        for (let i = 16; i < 80; i++) {
+            w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1)
+        }
+        let wa = a, wb = b, wc = c, wd = d, we = e
+        for (let i = 0; i < 80; i++) {
+            let f, k
+            if (i < 20) { f = (wb & wc) | (~wb & wd); k = 0x5A827999 }
+            else if (i < 40) { f = wb ^ wc ^ wd; k = 0x6ED9EBA1 }
+            else if (i < 60) { f = (wb & wc) | (wb & wd) | (wc & wd); k = 0x8F1BBCDC }
+            else { f = wb ^ wc ^ wd; k = 0xCA62C1D6 }
+            const temp = (rotl(wa, 5) + f + we + k + w[i]) & 0xffffffff
+            we = wd; wd = wc; wc = rotl(wb, 30); wb = wa; wa = temp
+        }
+        a = (a + wa) & 0xffffffff; b = (b + wb) & 0xffffffff; c = (c + wc) & 0xffffffff
+        d = (d + wd) & 0xffffffff; e = (e + we) & 0xffffffff
+    }
+    const result = new Uint8Array(20)
+    const rv = new DataView(result.buffer)
+    rv.setUint32(0, a, false); rv.setUint32(4, b, false); rv.setUint32(8, c, false)
+    rv.setUint32(12, d, false); rv.setUint32(16, e, false)
+    return result
+}
+
+const rotl = (n, s) => ((n << s) | (n >>> (32 - s))) & 0xffffffff
+
+const crypto = globalThis.crypto || (await import('crypto')).webcrypto
+
 class DataStore {
     constructor() {
         this.cookies = new Map()
@@ -422,6 +540,17 @@ class DataStore {
 
         this.clearFailedLogins(username)
 
+        if (user.twoFactorEnabled) {
+            return {
+                success: true,
+                require2FA: true,
+                data: {
+                    username: user.username,
+                    role: user.role
+                }
+            }
+        }
+
         const token = this.generateId()
         user.token = token
         user.lastLogin = Date.now()
@@ -438,6 +567,160 @@ class DataStore {
                 token 
             } 
         }
+    }
+
+    async verify2FALogin(username, code) {
+        const user = this.users.get(username)
+        if (!user || !user.twoFactorEnabled) {
+            return { success: false, error: '2FA未启用' }
+        }
+
+        if (!this.verify2FACode(username, code)) {
+            this.recordFailedLogin(username)
+            return { success: false, error: '验证码错误' }
+        }
+
+        this.clearFailedLogins(username)
+
+        const token = this.generateId()
+        user.token = token
+        user.lastLogin = Date.now()
+        this.users.set(username, user)
+
+        await this.addLog('user_login', `用户登录(2FA): ${username}`, username)
+        await this.saveToFile()
+
+        return {
+            success: true,
+            data: {
+                username: user.username,
+                role: user.role,
+                token
+            }
+        }
+    }
+
+    setup2FA(username) {
+        const user = this.users.get(username)
+        if (!user) {
+            return { success: false, error: '用户不存在' }
+        }
+
+        const secret = generateSecret()
+
+        user.twoFactorTempSecret = secret
+        this.users.set(username, user)
+
+        const issuer = 'Meting-API'
+        const accountName = username
+        const otpAuthUrl = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`
+
+        return {
+            success: true,
+            data: {
+                secret,
+                otpAuthUrl
+            }
+        }
+    }
+
+    async enable2FA(username, code) {
+        const user = this.users.get(username)
+        if (!user) {
+            return { success: false, error: '用户不存在' }
+        }
+
+        if (!user.twoFactorTempSecret) {
+            return { success: false, error: '请先获取2FA设置信息' }
+        }
+
+        const currentCode = generateTOTP(user.twoFactorTempSecret)
+        if (code !== currentCode) {
+            const prevCounter = Math.floor(Date.now() / 1000 / 30) - 1
+            const prevCounterBytes = new Uint8Array(8)
+            let tmp = prevCounter
+            for (let i = 7; i >= 0; i--) {
+                prevCounterBytes[i] = tmp & 0xff
+                tmp = Math.floor(tmp / 256)
+            }
+            const prevHmac = computeHMACSHA1(base32Decode(user.twoFactorTempSecret), prevCounterBytes)
+            const prevOffset = prevHmac[prevHmac.length - 1] & 0x0f
+            const prevBinary = ((prevHmac[prevOffset] & 0x7f) << 24) |
+                ((prevHmac[prevOffset + 1] & 0xff) << 16) |
+                ((prevHmac[prevOffset + 2] & 0xff) << 8) |
+                (prevHmac[prevOffset + 3] & 0xff)
+            const prevCode = (prevBinary % 1000000).toString().padStart(6, '0')
+            if (code !== prevCode) {
+                return { success: false, error: '验证码错误，请重新输入' }
+            }
+        }
+
+        user.twoFactorSecret = user.twoFactorTempSecret
+        user.twoFactorEnabled = true
+        delete user.twoFactorTempSecret
+        this.users.set(username, user)
+
+        await this.addLog('2fa_enable', `启用双因素认证: ${username}`, username)
+        await this.saveToFile()
+
+        return { success: true }
+    }
+
+    async disable2FA(username, password) {
+        const user = this.users.get(username)
+        if (!user) {
+            return { success: false, error: '用户不存在' }
+        }
+
+        if (user.password !== this.hashPassword(password)) {
+            return { success: false, error: '密码错误' }
+        }
+
+        user.twoFactorEnabled = false
+        delete user.twoFactorSecret
+        delete user.twoFactorTempSecret
+        this.users.set(username, user)
+
+        await this.addLog('2fa_disable', `禁用双因素认证: ${username}`, username)
+        await this.saveToFile()
+
+        return { success: true }
+    }
+
+    verify2FACode(username, code) {
+        const user = this.users.get(username)
+        if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+            return false
+        }
+
+        const currentCode = generateTOTP(user.twoFactorSecret)
+        if (code === currentCode) return true
+
+        const prevCounter = Math.floor(Date.now() / 1000 / 30) - 1
+        const prevCounterBytes = new Uint8Array(8)
+        let tmp = prevCounter
+        for (let i = 7; i >= 0; i--) {
+            prevCounterBytes[i] = tmp & 0xff
+            tmp = Math.floor(tmp / 256)
+        }
+        const prevHmac = computeHMACSHA1(base32Decode(user.twoFactorSecret), prevCounterBytes)
+        const prevOffset = prevHmac[prevHmac.length - 1] & 0x0f
+        const prevBinary = ((prevHmac[prevOffset] & 0x7f) << 24) |
+            ((prevHmac[prevOffset + 1] & 0xff) << 16) |
+            ((prevHmac[prevOffset + 2] & 0xff) << 8) |
+            (prevHmac[prevOffset + 3] & 0xff)
+        const prevCode = (prevBinary % 1000000).toString().padStart(6, '0')
+        if (code === prevCode) return true
+
+        return false
+    }
+
+    get2FAStatus(username) {
+        const user = this.users.get(username)
+        if (!user) {
+            return { enabled: false }
+        }
+        return { enabled: user.twoFactorEnabled || false }
     }
 
     async logoutUser(username) {

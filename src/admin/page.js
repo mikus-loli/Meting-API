@@ -669,7 +669,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
 </head>
 <body>
     <div class="login-container" id="loginContainer">
-        <div class="login-box">
+        <div class="login-box" id="loginBox">
             <h1>🎵 Meting-API</h1>
             <p class="login-subtitle">管理后台登录</p>
             <form id="loginForm">
@@ -683,6 +683,20 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 </div>
                 <div class="error-msg" id="loginError"></div>
                 <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top:8px;">登 录</button>
+            </form>
+        </div>
+        <div class="login-box" id="twoFactorBox" style="display:none;">
+            <h1>🔐 双因素认证</h1>
+            <p class="login-subtitle">请输入认证器中的验证码</p>
+            <form id="twoFactorForm">
+                <input type="hidden" id="twoFactorUsername">
+                <div class="form-group">
+                    <label>验证码</label>
+                    <input type="text" id="twoFactorCode" required placeholder="6位数字验证码" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;">
+                </div>
+                <div class="error-msg" id="twoFactorError"></div>
+                <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top:8px;">验 证</button>
+                <button type="button" class="btn btn-default btn-full" style="margin-top:8px;" onclick="cancel2FA()">返回登录</button>
             </form>
         </div>
     </div>
@@ -918,6 +932,21 @@ const getAdminHtml = () => `<!DOCTYPE html>
                                 <button type="submit" class="btn btn-primary">保存路径</button>
                             </form>
                         </div>
+
+                        <div class="card settings-section" id="twoFactorSection">
+                            <h4>🔐 双因素认证</h4>
+                            <div id="twoFactorDisabled">
+                                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">双因素认证可为您的账户提供额外安全保障，启用后登录时需要输入验证码。</p>
+                                <button type="button" class="btn btn-primary" onclick="startSetup2FA()">启用双因素认证</button>
+                            </div>
+                            <div id="twoFactorEnabled" style="display:none;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                    <span class="status-dot status-active"></span>
+                                    <span style="color:var(--success);font-weight:600;font-size:14px;">已启用</span>
+                                </div>
+                                <button type="button" class="btn btn-danger" onclick="showDisable2FAModal()">禁用双因素认证</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1021,6 +1050,74 @@ const getAdminHtml = () => `<!DOCTYPE html>
         </div>
     </div>
 
+    <div class="modal" id="twoFactorSetupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔐 设置双因素认证</h3>
+                <button class="modal-close" onclick="closeModal('twoFactorSetupModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="twoFactorStep1">
+                    <h4 style="margin-bottom:12px;font-size:15px;">第 1 步：扫描二维码</h4>
+                    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">使用 Google Authenticator、Authy 或其他 TOTP 认证应用扫描下方二维码。</p>
+                    <div style="text-align:center;margin-bottom:16px;">
+                        <div id="qrcodeContainer" style="display:inline-block;padding:12px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>手动输入密钥</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="twoFactorSecretDisplay" readonly style="font-family:monospace;font-size:13px;letter-spacing:1px;">
+                            <button type="button" class="btn btn-default btn-sm" onclick="copy2FASecret()">复制</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="twoFactorStep2" style="display:none;">
+                    <h4 style="margin-bottom:12px;font-size:15px;">第 2 步：输入验证码</h4>
+                    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">输入认证器应用中显示的 6 位验证码以完成设置。</p>
+                    <form id="twoFactorSetupForm">
+                        <div class="form-group">
+                            <label>验证码</label>
+                            <input type="text" id="twoFactorSetupCode" required placeholder="6位数字验证码" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;">
+                        </div>
+                        <div class="error-msg" id="twoFactorSetupError"></div>
+                    </form>
+                </div>
+                <div id="twoFactorStep3" style="display:none;">
+                    <h4 style="margin-bottom:12px;font-size:15px;color:var(--success);">✓ 双因素认证已启用</h4>
+                    <p style="color:var(--text-secondary);font-size:13px;">您的账户现在受到额外保护，每次登录时都需要输入验证码。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="twoFactorSetupBack" onclick="twoFactorSetupGoBack()" style="display:none;">上一步</button>
+                <button type="button" class="btn btn-primary" id="twoFactorSetupNext" onclick="twoFactorSetupGoNext()">下一步</button>
+                <button type="button" class="btn btn-default" id="twoFactorSetupFinish" onclick="closeModal('twoFactorSetupModal')" style="display:none;">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="twoFactorDisableModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>禁用双因素认证</h3>
+                <button class="modal-close" onclick="closeModal('twoFactorDisableModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">禁用双因素认证会降低账户安全性，请输入密码确认操作。</p>
+                <form id="twoFactorDisableForm">
+                    <div class="form-group">
+                        <label>当前密码</label>
+                        <input type="password" id="disable2FAPassword" required placeholder="请输入当前密码">
+                    </div>
+                    <div class="error-msg" id="disable2FAError"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" onclick="closeModal('twoFactorDisableModal')">取消</button>
+                <button type="submit" class="btn btn-danger" onclick="document.getElementById('twoFactorDisableForm').dispatchEvent(new Event('submit',{cancelable:true}))">确认禁用</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let authToken = localStorage.getItem('authToken');
         let authUsername = localStorage.getItem('authUsername');
@@ -1086,6 +1183,8 @@ const getAdminHtml = () => `<!DOCTYPE html>
         const showLogin = () => {
             document.getElementById('loginContainer').style.display = 'flex';
             document.getElementById('adminContainer').style.display = 'none';
+            document.getElementById('loginBox').style.display = 'block';
+            document.getElementById('twoFactorBox').style.display = 'none';
         };
 
         const showAdmin = () => {
@@ -1095,6 +1194,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
             document.getElementById('currentUsernameDisplay').value = authUsername;
             loadDashboard();
             loadConfig();
+            load2FAStatus();
         };
 
         let currentUserRole = 'user';
@@ -1352,12 +1452,38 @@ const getAdminHtml = () => `<!DOCTYPE html>
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             const res = await api('/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-            if (res?.success) {
+            if (res?.require2FA) {
+                document.getElementById('loginBox').style.display = 'none';
+                document.getElementById('twoFactorBox').style.display = 'block';
+                document.getElementById('twoFactorUsername').value = username;
+                document.getElementById('twoFactorCode').value = '';
+                document.getElementById('twoFactorError').textContent = '';
+                document.getElementById('twoFactorCode').focus();
+            } else if (res?.success) {
                 authToken = res.data.token; authUsername = res.data.username;
                 localStorage.setItem('authToken', authToken); localStorage.setItem('authUsername', authUsername);
                 showAdmin();
             } else document.getElementById('loginError').textContent = res?.error || '登录失败';
         });
+
+        document.getElementById('twoFactorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('twoFactorUsername').value;
+            const code = document.getElementById('twoFactorCode').value.trim();
+            if (!code) { document.getElementById('twoFactorError').textContent = '请输入验证码'; return; }
+            const res = await api('/admin/login', { method: 'POST', body: JSON.stringify({ username, password: document.getElementById('loginPassword').value, code }) });
+            if (res?.success) {
+                authToken = res.data.token; authUsername = res.data.username;
+                localStorage.setItem('authToken', authToken); localStorage.setItem('authUsername', authUsername);
+                showAdmin();
+            } else document.getElementById('twoFactorError').textContent = res?.error || '验证失败';
+        });
+
+        const cancel2FA = () => {
+            document.getElementById('loginBox').style.display = 'block';
+            document.getElementById('twoFactorBox').style.display = 'none';
+            document.getElementById('twoFactorError').textContent = '';
+        };
 
         document.getElementById('cookieForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1441,6 +1567,117 @@ const getAdminHtml = () => `<!DOCTYPE html>
             const res = await api('/admin/webhook', { method: 'PUT', body: JSON.stringify({ enabled, url, headers }) });
             if (res?.success) showToast('Webhook设置已保存');
             else showToast(res?.error || '保存失败', 'error');
+        });
+
+        let twoFASetupData = null;
+        let twoFASetupStep = 1;
+
+        const load2FAStatus = async () => {
+            const res = await api('/admin/2fa/status');
+            if (res?.success) {
+                if (res.data.enabled) {
+                    document.getElementById('twoFactorDisabled').style.display = 'none';
+                    document.getElementById('twoFactorEnabled').style.display = 'block';
+                } else {
+                    document.getElementById('twoFactorDisabled').style.display = 'block';
+                    document.getElementById('twoFactorEnabled').style.display = 'none';
+                }
+            }
+        };
+
+        const startSetup2FA = async () => {
+            const res = await api('/admin/2fa/setup', { method: 'POST' });
+            if (!res?.success) { showToast(res?.error || '获取2FA设置失败', 'error'); return; }
+            twoFASetupData = res.data;
+            twoFASetupStep = 1;
+            document.getElementById('twoFactorStep1').style.display = 'block';
+            document.getElementById('twoFactorStep2').style.display = 'none';
+            document.getElementById('twoFactorStep3').style.display = 'none';
+            document.getElementById('twoFactorSetupBack').style.display = 'none';
+            document.getElementById('twoFactorSetupNext').style.display = 'inline-flex';
+            document.getElementById('twoFactorSetupFinish').style.display = 'none';
+            document.getElementById('twoFactorSecretDisplay').value = twoFASetupData.secret;
+            generateQRCode(twoFASetupData.otpAuthUrl);
+            document.getElementById('twoFactorSetupModal').classList.add('show');
+        };
+
+        const generateQRCode = (text) => {
+            const container = document.getElementById('qrcodeContainer');
+            container.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(text);
+            img.alt = '2FA QR Code';
+            img.style.width = '200px';
+            img.style.height = '200px';
+            img.onerror = () => {
+                img.remove();
+                const fallback = document.createElement('div');
+                fallback.style.cssText = 'padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;';
+                fallback.innerHTML = '二维码加载失败，请使用下方密钥手动输入';
+                container.appendChild(fallback);
+            };
+            container.appendChild(img);
+        };
+
+        const twoFactorSetupGoNext = async () => {
+            if (twoFASetupStep === 1) {
+                twoFASetupStep = 2;
+                document.getElementById('twoFactorStep1').style.display = 'none';
+                document.getElementById('twoFactorStep2').style.display = 'block';
+                document.getElementById('twoFactorSetupBack').style.display = 'inline-flex';
+                document.getElementById('twoFactorSetupCode').value = '';
+                document.getElementById('twoFactorSetupError').textContent = '';
+                document.getElementById('twoFactorSetupCode').focus();
+            } else if (twoFASetupStep === 2) {
+                const code = document.getElementById('twoFactorSetupCode').value.trim();
+                if (!code) { document.getElementById('twoFactorSetupError').textContent = '请输入验证码'; return; }
+                const res = await api('/admin/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) });
+                if (res?.success) {
+                    twoFASetupStep = 3;
+                    document.getElementById('twoFactorStep2').style.display = 'none';
+                    document.getElementById('twoFactorStep3').style.display = 'block';
+                    document.getElementById('twoFactorSetupBack').style.display = 'none';
+                    document.getElementById('twoFactorSetupNext').style.display = 'none';
+                    document.getElementById('twoFactorSetupFinish').style.display = 'inline-flex';
+                    load2FAStatus();
+                } else {
+                    document.getElementById('twoFactorSetupError').textContent = res?.error || '验证码错误';
+                }
+            }
+        };
+
+        const twoFactorSetupGoBack = () => {
+            if (twoFASetupStep === 2) {
+                twoFASetupStep = 1;
+                document.getElementById('twoFactorStep1').style.display = 'block';
+                document.getElementById('twoFactorStep2').style.display = 'none';
+                document.getElementById('twoFactorSetupBack').style.display = 'none';
+            }
+        };
+
+        const copy2FASecret = () => {
+            const secret = document.getElementById('twoFactorSecretDisplay').value;
+            navigator.clipboard.writeText(secret).then(() => showToast('密钥已复制'));
+        };
+
+        const showDisable2FAModal = () => {
+            document.getElementById('disable2FAPassword').value = '';
+            document.getElementById('disable2FAError').textContent = '';
+            document.getElementById('twoFactorDisableModal').classList.add('show');
+        };
+
+        document.getElementById('twoFactorDisableForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('disable2FAPassword').value;
+            if (!password) { document.getElementById('disable2FAError').textContent = '请输入密码'; return; }
+            const res = await api('/admin/2fa/disable', { method: 'POST', body: JSON.stringify({ password }) });
+            if (res?.success) {
+                showToast('双因素认证已禁用');
+                closeModal('twoFactorDisableModal');
+                load2FAStatus();
+            } else {
+                document.getElementById('disable2FAError').textContent = res?.error || '操作失败';
+            }
         });
 
         document.querySelectorAll('.sidebar-menu li').forEach(li => {

@@ -15,13 +15,29 @@ const formatCookieForDisplay = (cookie) => {
 export const adminRoutes = (app) => {
     app.post('/admin/login', async (c) => {
         const body = await c.req.json()
-        const { username, password } = body
+        const { username, password, code } = body
         
         if (!username || !password) {
             return c.json({ success: false, error: '用户名和密码不能为空' }, 400)
         }
         
         const result = await store.authenticateUser(username, password)
+        
+        if (result.success && result.require2FA) {
+            if (!code) {
+                return c.json({ 
+                    success: true, 
+                    require2FA: true, 
+                    data: { username: result.data.username, role: result.data.role }
+                })
+            }
+            const twoFAResult = await store.verify2FALogin(username, code)
+            if (twoFAResult.success) {
+                return c.json(twoFAResult)
+            } else {
+                return c.json(twoFAResult, 401)
+            }
+        }
         
         if (result.success) {
             return c.json(result)
@@ -310,6 +326,56 @@ export const adminRoutes = (app) => {
         const offset = parseInt(c.req.query('offset') || '0')
         const logs = store.getMonitorLogs(limit, offset)
         return c.json({ success: true, data: logs })
+    })
+
+    app.get('/admin/2fa/status', authMiddleware, async (c) => {
+        const username = c.get('username')
+        const status = store.get2FAStatus(username)
+        return c.json({ success: true, data: status })
+    })
+
+    app.post('/admin/2fa/setup', authMiddleware, async (c) => {
+        const username = c.get('username')
+        const result = store.setup2FA(username)
+        if (result.success) {
+            return c.json(result)
+        } else {
+            return c.json(result, 400)
+        }
+    })
+
+    app.post('/admin/2fa/enable', authMiddleware, async (c) => {
+        const body = await c.req.json()
+        const { code } = body
+        const username = c.get('username')
+
+        if (!code) {
+            return c.json({ success: false, error: '验证码不能为空' }, 400)
+        }
+
+        const result = await store.enable2FA(username, code)
+        if (result.success) {
+            return c.json(result)
+        } else {
+            return c.json(result, 400)
+        }
+    })
+
+    app.post('/admin/2fa/disable', authMiddleware, async (c) => {
+        const body = await c.req.json()
+        const { password } = body
+        const username = c.get('username')
+
+        if (!password) {
+            return c.json({ success: false, error: '密码不能为空' }, 400)
+        }
+
+        const result = await store.disable2FA(username, password)
+        if (result.success) {
+            return c.json(result)
+        } else {
+            return c.json(result, 400)
+        }
     })
 }
 
