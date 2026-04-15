@@ -32,11 +32,11 @@ export const adminRoutes = (app) => {
                 })
             }
             const twoFAResult = await store.verify2FALogin(username, code)
-            if (twoFAResult.success) {
-                return c.json(twoFAResult)
-            } else {
-                return c.json(twoFAResult, 401)
-            }
+        if (twoFAResult.success) {
+            return c.json(twoFAResult)
+        } else {
+            return c.json(twoFAResult, 400)
+        }
         }
         
         if (result.success) {

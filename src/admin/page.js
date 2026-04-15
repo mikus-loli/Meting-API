@@ -1133,11 +1133,10 @@ const getAdminHtml = () => `<!DOCTYPE html>
             }
             const res = await fetch(url, { ...options, headers });
             const data = await res.json();
-            if (res.status === 401) {
+            if (res.status === 401 && !url.includes('/admin/login')) {
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('authUsername');
                 showLogin();
-                return null;
             }
             return data;
         };
@@ -1595,6 +1594,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
             document.getElementById('twoFactorStep3').style.display = 'none';
             document.getElementById('twoFactorSetupBack').style.display = 'none';
             document.getElementById('twoFactorSetupNext').style.display = 'inline-flex';
+            document.getElementById('twoFactorSetupNext').textContent = '下一步';
             document.getElementById('twoFactorSetupFinish').style.display = 'none';
             document.getElementById('twoFactorSecretDisplay').value = twoFASetupData.secret;
             generateQRCode(twoFASetupData.otpAuthUrl);
@@ -1625,6 +1625,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 document.getElementById('twoFactorStep1').style.display = 'none';
                 document.getElementById('twoFactorStep2').style.display = 'block';
                 document.getElementById('twoFactorSetupBack').style.display = 'inline-flex';
+                document.getElementById('twoFactorSetupNext').textContent = '验证';
                 document.getElementById('twoFactorSetupCode').value = '';
                 document.getElementById('twoFactorSetupError').textContent = '';
                 document.getElementById('twoFactorSetupCode').focus();
@@ -1652,8 +1653,14 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 document.getElementById('twoFactorStep1').style.display = 'block';
                 document.getElementById('twoFactorStep2').style.display = 'none';
                 document.getElementById('twoFactorSetupBack').style.display = 'none';
+                document.getElementById('twoFactorSetupNext').textContent = '下一步';
             }
         };
+
+        document.getElementById('twoFactorSetupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            twoFactorSetupGoNext();
+        });
 
         const copy2FASecret = () => {
             const secret = document.getElementById('twoFactorSecretDisplay').value;

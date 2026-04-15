@@ -5,11 +5,12 @@ const runtime = get_runtime()
 
 const isServerRuntime = ['node', 'deno', 'bun'].includes(runtime)
 
-let fs, path
+let fs, path, nodeCrypto
 
 if (isServerRuntime && runtime === 'node') {
     fs = await import('fs')
     path = await import('path')
+    nodeCrypto = await import('crypto')
 }
 
 const DATA_DIR = globalThis?.process?.env?.DATA_DIR || './data'
@@ -26,23 +27,35 @@ const LOCKOUT_DURATION = 15 * 60 * 1000
 const generateSecret = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
     let secret = ''
-    const bytes = crypto.getRandomValues(new Uint8Array(20))
+    const bytes = nodeCrypto.randomBytes(20)
     for (let i = 0; i < 16; i++) {
         secret += chars[bytes[i] % chars.length]
     }
     return secret
 }
 
-const generateTOTP = (secret, timeStep = 30) => {
+const generateTOTP = (secret) => {
     const key = base32Decode(secret)
-    const counter = Math.floor(Date.now() / 1000 / timeStep)
-    const counterBytes = new Uint8Array(8)
-    let tmp = counter
-    for (let i = 7; i >= 0; i--) {
-        counterBytes[i] = tmp & 0xff
-        tmp = Math.floor(tmp / 256)
-    }
-    const hmac = computeHMACSHA1(key, counterBytes)
+    const counter = Math.floor(Date.now() / 1000 / 30)
+    const counterBytes = Buffer.alloc(8)
+    counterBytes.writeUInt32BE(0, 0)
+    counterBytes.writeUInt32BE(counter, 4)
+    const hmac = nodeCrypto.createHmac('sha1', key).update(counterBytes).digest()
+    const offset = hmac[hmac.length - 1] & 0x0f
+    const binary = ((hmac[offset] & 0x7f) << 24) |
+        ((hmac[offset + 1] & 0xff) << 16) |
+        ((hmac[offset + 2] & 0xff) << 8) |
+        (hmac[offset + 3] & 0xff)
+    const otp = binary % 1000000
+    return otp.toString().padStart(6, '0')
+}
+
+const generateTOTPForCounter = (secret, counter) => {
+    const key = base32Decode(secret)
+    const counterBytes = Buffer.alloc(8)
+    counterBytes.writeUInt32BE(0, 0)
+    counterBytes.writeUInt32BE(counter, 4)
+    const hmac = nodeCrypto.createHmac('sha1', key).update(counterBytes).digest()
     const offset = hmac[hmac.length - 1] & 0x0f
     const binary = ((hmac[offset] & 0x7f) << 24) |
         ((hmac[offset + 1] & 0xff) << 16) |
@@ -67,79 +80,8 @@ const base32Decode = (str) => {
             bytes.push((buffer >> bitsLeft) & 0xff)
         }
     }
-    return new Uint8Array(bytes)
+    return Buffer.from(bytes)
 }
-
-const computeHMACSHA1 = (key, message) => {
-    const blockSize = 64
-    let keyBlock = key
-    if (keyBlock.length > blockSize) {
-        const hash = new Uint8Array(20)
-        keyBlock = hash
-    }
-    if (keyBlock.length < blockSize) {
-        const padded = new Uint8Array(blockSize)
-        padded.set(keyBlock)
-        keyBlock = padded
-    }
-    const ipad = new Uint8Array(blockSize)
-    const opad = new Uint8Array(blockSize)
-    for (let i = 0; i < blockSize; i++) {
-        ipad[i] = keyBlock[i] ^ 0x36
-        opad[i] = keyBlock[i] ^ 0x5c
-    }
-    const innerData = new Uint8Array(blockSize + message.length)
-    innerData.set(ipad)
-    innerData.set(message, blockSize)
-    const innerHash = sha1Digest(innerData)
-    const outerData = new Uint8Array(blockSize + 20)
-    outerData.set(opad)
-    outerData.set(innerHash, blockSize)
-    return sha1Digest(outerData)
-}
-
-const sha1Digest = (data) => {
-    const h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0
-    const msgLen = data.length
-    const bitLen = msgLen * 8
-    const paddedLen = Math.ceil((msgLen + 9) / 64) * 64
-    const padded = new Uint8Array(paddedLen)
-    padded.set(data)
-    padded[msgLen] = 0x80
-    const view = new DataView(padded.buffer)
-    view.setUint32(paddedLen - 4, bitLen, false)
-    let a = h0, b = h1, c = h2, d = h3, e = h4
-    const w = new Int32Array(80)
-    for (let offset = 0; offset < paddedLen; offset += 64) {
-        for (let i = 0; i < 16; i++) {
-            w[i] = view.getInt32(offset + i * 4, false)
-        }
-        for (let i = 16; i < 80; i++) {
-            w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1)
-        }
-        let wa = a, wb = b, wc = c, wd = d, we = e
-        for (let i = 0; i < 80; i++) {
-            let f, k
-            if (i < 20) { f = (wb & wc) | (~wb & wd); k = 0x5A827999 }
-            else if (i < 40) { f = wb ^ wc ^ wd; k = 0x6ED9EBA1 }
-            else if (i < 60) { f = (wb & wc) | (wb & wd) | (wc & wd); k = 0x8F1BBCDC }
-            else { f = wb ^ wc ^ wd; k = 0xCA62C1D6 }
-            const temp = (rotl(wa, 5) + f + we + k + w[i]) & 0xffffffff
-            we = wd; wd = wc; wc = rotl(wb, 30); wb = wa; wa = temp
-        }
-        a = (a + wa) & 0xffffffff; b = (b + wb) & 0xffffffff; c = (c + wc) & 0xffffffff
-        d = (d + wd) & 0xffffffff; e = (e + we) & 0xffffffff
-    }
-    const result = new Uint8Array(20)
-    const rv = new DataView(result.buffer)
-    rv.setUint32(0, a, false); rv.setUint32(4, b, false); rv.setUint32(8, c, false)
-    rv.setUint32(12, d, false); rv.setUint32(16, e, false)
-    return result
-}
-
-const rotl = (n, s) => ((n << s) | (n >>> (32 - s))) & 0xffffffff
-
-const crypto = globalThis.crypto || (await import('crypto')).webcrypto
 
 class DataStore {
     constructor() {
@@ -637,19 +579,7 @@ class DataStore {
         const currentCode = generateTOTP(user.twoFactorTempSecret)
         if (code !== currentCode) {
             const prevCounter = Math.floor(Date.now() / 1000 / 30) - 1
-            const prevCounterBytes = new Uint8Array(8)
-            let tmp = prevCounter
-            for (let i = 7; i >= 0; i--) {
-                prevCounterBytes[i] = tmp & 0xff
-                tmp = Math.floor(tmp / 256)
-            }
-            const prevHmac = computeHMACSHA1(base32Decode(user.twoFactorTempSecret), prevCounterBytes)
-            const prevOffset = prevHmac[prevHmac.length - 1] & 0x0f
-            const prevBinary = ((prevHmac[prevOffset] & 0x7f) << 24) |
-                ((prevHmac[prevOffset + 1] & 0xff) << 16) |
-                ((prevHmac[prevOffset + 2] & 0xff) << 8) |
-                (prevHmac[prevOffset + 3] & 0xff)
-            const prevCode = (prevBinary % 1000000).toString().padStart(6, '0')
+            const prevCode = generateTOTPForCounter(user.twoFactorTempSecret, prevCounter)
             if (code !== prevCode) {
                 return { success: false, error: '验证码错误，请重新输入' }
             }
@@ -697,19 +627,7 @@ class DataStore {
         if (code === currentCode) return true
 
         const prevCounter = Math.floor(Date.now() / 1000 / 30) - 1
-        const prevCounterBytes = new Uint8Array(8)
-        let tmp = prevCounter
-        for (let i = 7; i >= 0; i--) {
-            prevCounterBytes[i] = tmp & 0xff
-            tmp = Math.floor(tmp / 256)
-        }
-        const prevHmac = computeHMACSHA1(base32Decode(user.twoFactorSecret), prevCounterBytes)
-        const prevOffset = prevHmac[prevHmac.length - 1] & 0x0f
-        const prevBinary = ((prevHmac[prevOffset] & 0x7f) << 24) |
-            ((prevHmac[prevOffset + 1] & 0xff) << 16) |
-            ((prevHmac[prevOffset + 2] & 0xff) << 8) |
-            (prevHmac[prevOffset + 3] & 0xff)
-        const prevCode = (prevBinary % 1000000).toString().padStart(6, '0')
+        const prevCode = generateTOTPForCounter(user.twoFactorSecret, prevCounter)
         if (code === prevCode) return true
 
         return false
