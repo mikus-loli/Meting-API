@@ -94,9 +94,15 @@ class CookieMonitor {
             
             const wasValid = cookie.isValid
             const nowValid = result.valid
+            const wasCanPlayVip = cookie.userInfo?.canPlayVip
+            const nowCanPlayVip = result.userInfo?.canPlayVip
 
             if (wasValid === true && nowValid === false) {
                 await this.handleCookieInvalid(cookie, result.error)
+            }
+
+            if (nowValid && wasCanPlayVip === true && nowCanPlayVip === false) {
+                await this.handleVipLost(cookie)
             }
 
             await store.updateCookie(cookie.id, {
@@ -132,6 +138,28 @@ class CookieMonitor {
             title: `Cookie失效通知 - ${platformName}`,
             message: `平台: ${platformName}\n备注: ${cookie.note || '无'}\n失效时间: ${new Date().toLocaleString('zh-CN')}\n原因: ${reason || 'Cookie已失效'}\n\n请及时更新Cookie以确保服务正常`,
             priority: 5
+        })
+    }
+
+    async handleVipLost(cookie) {
+        const platformName = cookie.platform === 'netease' ? '网易云音乐' : 'QQ音乐'
+        
+        console.log(`[CookieMonitor] VIP播放能力丢失: ${platformName} - ${cookie.note || cookie.id}`)
+
+        await store.addMonitorLog({
+            type: 'vip_lost',
+            cookieId: cookie.id,
+            platform: cookie.platform,
+            platformName: platformName,
+            note: cookie.note,
+            reason: 'VIP播放能力已丢失，仅能播放试听版本'
+        })
+
+        await this.sendWebhookNotification({
+            event: 'vip_lost',
+            title: `VIP播放能力丢失 - ${platformName}`,
+            message: `平台: ${platformName}\n备注: ${cookie.note || '无'}\n发现时间: ${new Date().toLocaleString('zh-CN')}\n状态: Cookie有效但无法播放VIP音乐\n\n请检查VIP会员状态或更新Cookie`,
+            priority: 4
         })
     }
 
