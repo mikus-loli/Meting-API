@@ -1273,9 +1273,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 const refreshBtn = cookie.platform === 'tencent' 
                     ? '<button class="btn btn-warning btn-sm" onclick="refreshCookie(\\'' + cookie.id + '\\')">刷新</button>' 
                     : '';
-                const testBtn = cookie.platform === 'tencent'
-                    ? '<button class="btn btn-info btn-sm" onclick="simulateVipLost(\\'' + cookie.id + '\\')">测试刷新</button>'
-                    : '';
                 return '<tr>' +
                     '<td><span class="badge badge-primary">' + getPlatformName(cookie.platform) + '</span></td>' +
                     '<td class="cookie-preview" title="' + (cookie.cookiePreview || '') + '">' + (cookie.cookiePreview || '-') + '</td>' +
@@ -1288,7 +1285,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                     '<td class="actions">' +
                         '<button class="btn btn-success btn-sm" onclick="verifyCookie(\\'' + cookie.id + '\\')">验证</button>' +
                         refreshBtn +
-                        testBtn +
                         '<button class="btn btn-default btn-sm" onclick="editCookie(\\'' + cookie.id + '\\')">编辑</button>' +
                         '<button class="btn btn-danger btn-sm" onclick="deleteCookie(\\'' + cookie.id + '\\')">删除</button>' +
                     '</td></tr>';
@@ -1426,16 +1422,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 showToast('Cookie刷新成功');
                 loadCookies(); loadDashboard();
             } else showToast(res?.error || '刷新失败', 'error');
-        };
-
-        const simulateVipLost = async (id) => {
-            if (!confirm('确定要模拟VIP播放能力丢失吗？这将测试自动刷新功能。')) return;
-            showToast('正在模拟VIP丢失...', 'success');
-            const res = await api('/admin/cookies/' + id + '/simulate-vip-lost', { method: 'POST' });
-            if (res?.success) {
-                showToast('已模拟VIP丢失，请查看日志');
-                loadCookies(); loadDashboard();
-            } else showToast(res?.error || '模拟失败', 'error');
         };
 
         const deleteCookie = async (id) => {

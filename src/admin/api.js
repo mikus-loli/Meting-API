@@ -168,22 +168,6 @@ export const adminRoutes = (app) => {
         }
     })
 
-    app.post('/admin/cookies/:id/simulate-vip-lost', authMiddleware, async (c) => {
-        const id = c.req.param('id')
-        
-        const cookie = store.getCookie(id)
-        if (!cookie) {
-            return c.json({ success: false, error: 'Cookie不存在' }, 404)
-        }
-        
-        await cookieMonitor.handleVipLost(cookie)
-        
-        return c.json({ 
-            success: true, 
-            message: '已模拟VIP播放能力丢失，请查看日志' 
-        })
-    })
-
     app.post('/admin/cookies/validate', authMiddleware, async (c) => {
         const body = await c.req.json()
         const { platform, cookie } = body
