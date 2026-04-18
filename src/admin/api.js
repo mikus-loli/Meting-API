@@ -2,6 +2,7 @@ import store from '../admin/store.js'
 import { authMiddleware, adminMiddleware } from '../middleware/auth.js'
 import { validateCookie } from './cookie-validator.js'
 import cookieMonitor from './cookie-monitor.js'
+import { refreshTencentCookie, refreshTencentCookieByRefreshToken } from '../providers/tencent/refresh.js'
 
 const formatCookieForDisplay = (cookie) => {
     const { id, platform, note, createdAt, updatedAt, createdBy, isActive, isValid, validatedAt, userInfo, validationError } = cookie
@@ -136,6 +137,51 @@ export const adminRoutes = (app) => {
         } else {
             return c.json(result, 404)
         }
+    })
+
+    app.post('/admin/cookies/:id/refresh', authMiddleware, async (c) => {
+        const id = c.req.param('id')
+        const username = c.get('username')
+        
+        const cookie = store.getCookie(id)
+        if (!cookie) {
+            return c.json({ success: false, error: 'Cookie不存在' }, 404)
+        }
+        
+        if (cookie.platform !== 'tencent') {
+            return c.json({ success: false, error: '仅支持QQ音乐Cookie刷新' }, 400)
+        }
+        
+        const refreshResult = await cookieMonitor.refreshTencentCookie(cookie)
+        
+        if (refreshResult.success) {
+            return c.json({ 
+                success: true, 
+                message: 'Cookie刷新成功',
+                data: { id: cookie.id }
+            })
+        } else {
+            return c.json({ 
+                success: false, 
+                error: refreshResult.error || 'Cookie刷新失败' 
+            }, 400)
+        }
+    })
+
+    app.post('/admin/cookies/:id/simulate-vip-lost', authMiddleware, async (c) => {
+        const id = c.req.param('id')
+        
+        const cookie = store.getCookie(id)
+        if (!cookie) {
+            return c.json({ success: false, error: 'Cookie不存在' }, 404)
+        }
+        
+        await cookieMonitor.handleVipLost(cookie)
+        
+        return c.json({ 
+            success: true, 
+            message: '已模拟VIP播放能力丢失，请查看日志' 
+        })
     })
 
     app.post('/admin/cookies/validate', authMiddleware, async (c) => {
