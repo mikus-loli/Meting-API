@@ -150,11 +150,23 @@ let html = `
         footer a { color: var(--primary); text-decoration: none; }
         footer a:hover { text-decoration: underline; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--success-bg); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.1); } }
-        @media (max-width: 640px) {
-            .container { padding: 16px; }
-            .header-inner { padding: 0 16px; }
+        @media (max-width: 768px) {
+            .container { padding: 16px 14px; }
+            .header-inner { padding: 0 14px; }
             .player-wrap { padding: 10px 14px 14px; }
-            .player-label { padding: 12px 14px 0; }
+            .player-label { padding: 12px 14px 0; font-size: 12px; }
+            .section-title { font-size: 14px; margin-bottom: 12px; }
+            .player-card { margin-bottom: 12px; }
+        }
+        @media (max-width: 480px) {
+            .header h1 { font-size: 15px; }
+            .header-badge { font-size: 11px; padding: 3px 8px; }
+            .back-link { font-size: 12px; }
+            .container { padding: 12px 10px; }
+            .player-wrap { padding: 8px 10px 10px; }
+            .player-label { padding: 10px 10px 0; }
+            .type-badge { font-size: 10px; }
+            footer { padding: 16px 12px; font-size: 12px; }
         }
     </style>
 </head>

@@ -188,15 +188,20 @@ class CookieMonitor {
             }
 
             if (refreshResult.success) {
-                const newCookieStr = refreshResult.cookie
-                const newCookieObj = this.parseCookieString(newCookieStr)
-                const mergedCookie = this.mergeCookieString(cookie.cookie, newCookieStr)
+                const mergedCookie = this.mergeCookieString(cookie.cookie, refreshResult.cookie)
                 
-                await store.updateCookie(cookie.id, {
+                const updateData = {
                     cookie: mergedCookie,
-                    refreshToken: refreshResult.refreshToken || refreshToken,
                     validatedAt: Date.now()
-                }, 'monitor', true)
+                }
+                
+                if (refreshResult.refreshToken) {
+                    updateData.refreshToken = refreshResult.refreshToken
+                } else if (refreshToken) {
+                    updateData.refreshToken = refreshToken
+                }
+
+                await store.updateCookie(cookie.id, updateData, 'monitor', true)
 
                 await store.addMonitorLog({
                     type: 'cookie_refreshed',

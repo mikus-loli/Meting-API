@@ -208,16 +208,55 @@ app.get('/', (c) => {
         @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--success-bg); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.1); } }
-        @media (max-width: 640px) {
-            .hero { padding: 56px 20px 48px; }
-            .hero h1 { font-size: 28px; }
+        @media (max-width: 768px) {
+            .hero { padding: 48px 20px 40px; }
+            .hero h1 { font-size: 28px; letter-spacing: -0.5px; }
             .hero p { font-size: 14px; }
-            .card { padding: 20px; }
-            .info-grid { grid-template-columns: 1fr; }
+            .hero-icon { font-size: 42px; }
+            .card { padding: 20px 18px; }
+            .info-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .info-item { padding: 12px; }
             .links-grid { grid-template-columns: 1fr; }
             .param-table { font-size: 12px; }
             .param-table th, .param-table td { padding: 8px 10px; }
-            .code-block { font-size: 12px; }
+            .code-block { font-size: 12px; padding: 14px 16px; }
+            .code-block pre { font-size: 12px; }
+            .api-endpoint { padding: 10px 12px; flex-wrap: wrap; }
+            .api-path { font-size: 12px; word-break: break-all; }
+            .section-subtitle { font-size: 13px; }
+            .support-grid { grid-template-columns: repeat(2, 1fr); }
+            .container { margin-top: -24px; }
+            .error-table { font-size: 12px; }
+            .error-table th, .error-table td { padding: 8px 10px; }
+            .tabs { flex-wrap: wrap; }
+            .tab-btn { padding: 6px 12px; font-size: 11px; }
+        }
+        @media (max-width: 480px) {
+            .hero { padding: 36px 16px 32px; }
+            .hero h1 { font-size: 24px; }
+            .hero p { font-size: 13px; }
+            .hero-icon { font-size: 36px; }
+            .badges img { height: 18px; }
+            .card { padding: 16px 14px; margin-bottom: 14px; }
+            .card-title { font-size: 14px; margin-bottom: 14px; }
+            .info-grid { grid-template-columns: 1fr; }
+            .info-label { font-size: 10px; }
+            .info-value { font-size: 13px; }
+            .link-card { padding: 12px 14px; }
+            .link-icon { font-size: 20px; }
+            .link-title { font-size: 13px; }
+            .link-desc { font-size: 11px; }
+            .param-table { font-size: 11px; display: block; overflow-x: auto; }
+            .param-table th, .param-table td { padding: 6px 8px; }
+            .code-block { padding: 12px; }
+            .code-block pre { font-size: 11px; line-height: 1.5; }
+            .code-label { font-size: 11px; }
+            .support-grid { grid-template-columns: 1fr; }
+            .support-item { padding: 8px 10px; font-size: 12px; }
+            .container { padding: 0 14px; margin-top: -20px; }
+            footer { padding: 20px 16px; font-size: 12px; }
+            .api-method { font-size: 10px; padding: 2px 8px; }
+            .api-path { font-size: 11px; }
         }
         .api-method {
             display: inline-flex;

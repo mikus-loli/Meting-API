@@ -12,14 +12,39 @@ const parseCookieString = (cookieString) => {
     return cookies
 }
 
-const getSign = (data) => {
-    let str = data
-    if (typeof data === 'object') {
-        str = JSON.stringify(data)
+const buildRefreshResult = (loginData, uin) => {
+    const updates = {
+        qqmusic_key: loginData.musickey,
+        qm_keyst: loginData.musickey
     }
-    const hash = crypto.createHash('md5').update(str).digest('hex')
-    return 'zzb' + hash.slice(21, 22) + hash.slice(4, 5) + hash.slice(9, 10) + hash.slice(26, 27) + hash.slice(16, 17) + hash.slice(20, 21) + hash.slice(27, 28) + hash.slice(30, 31) +
-        hash.slice(18, 19) + hash.slice(11, 12) + hash.slice(3, 4) + hash.slice(2, 3) + hash.slice(1, 2) + hash.slice(7, 8) + hash.slice(6, 7) + hash.slice(25, 26)
+    if (loginData.access_token) {
+        updates.psrf_qqaccess_token = loginData.access_token
+    }
+    if (loginData.openid) {
+        updates.psrf_qqopenid = loginData.openid
+    }
+    if (loginData.expired_at) {
+        updates.psrf_access_token_expiresAt = String(loginData.expired_at)
+    }
+    if (loginData.musickeyCreateTime) {
+        updates.psrf_musickey_createtime = String(loginData.musickeyCreateTime)
+    }
+    if (loginData.str_musicid) {
+        updates.uin = loginData.str_musicid
+    }
+
+    const newCookie = Object.entries(updates)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('; ')
+
+    return {
+        success: true,
+        cookie: newCookie,
+        musickey: loginData.musickey,
+        refreshToken: loginData.refresh_token || null,
+        accessToken: loginData.access_token || null,
+        expire: loginData.expired_at || null
+    }
 }
 
 const refreshTencentCookie = async (cookieString) => {
@@ -59,7 +84,7 @@ const refreshTencentCookie = async (cookieString) => {
 
         const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg?data=' + encodeURIComponent(JSON.stringify(data))
 
-        console.log('[QQMusic Refresh] Using musicu.fcg API')
+        console.log('[QQMusic Refresh] Using musickey, uin:', uin)
         
         const res = await fetch(url, {
             headers: {
@@ -69,21 +94,13 @@ const refreshTencentCookie = async (cookieString) => {
         })
         const result = await res.json()
         
-        console.log('[QQMusic Refresh] Response:', JSON.stringify(result).substring(0, 500))
+        console.log('[QQMusic Refresh] Response code:', result.req_0?.code, 'has musickey:', !!result.req_0?.data?.musickey)
 
         if (result.req_0 && result.req_0.data && result.req_0.data.musickey) {
-            const loginData = result.req_0.data
-            const newCookie = `uin=${uin}; qqmusic_key=${loginData.musickey}`
-            return {
-                success: true,
-                cookie: newCookie,
-                musickey: loginData.musickey,
-                expire: loginData.musickey_expiretime || null,
-                refreshToken: loginData.refresh_token || null
-            }
+            return buildRefreshResult(result.req_0.data, uin)
         }
 
-        const errorMsg = result.req_0?.data?.errmsg || result.req_0?.code || JSON.stringify(result)
+        const errorMsg = result.req_0?.data?.errMsg || result.req_0?.code || JSON.stringify(result)
         return {
             success: false,
             error: `Cookie刷新失败: ${errorMsg}`
@@ -130,7 +147,7 @@ const refreshTencentCookieByRefreshToken = async (refreshToken, uin) => {
 
         const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg?data=' + encodeURIComponent(JSON.stringify(data))
 
-        console.log('[QQMusic Refresh] Using refresh_token')
+        console.log('[QQMusic Refresh] Using refresh_token, uin:', uin)
 
         const res = await fetch(url, {
             headers: {
@@ -140,19 +157,17 @@ const refreshTencentCookieByRefreshToken = async (refreshToken, uin) => {
         })
         const result = await res.json()
 
+        console.log('[QQMusic Refresh] Response code:', result.req_0?.code, 'has musickey:', !!result.req_0?.data?.musickey)
+
         if (result.req_0 && result.req_0.data && result.req_0.data.musickey) {
-            const loginData = result.req_0.data
-            const newCookie = `uin=${uin}; qqmusic_key=${loginData.musickey}`
-            return {
-                success: true,
-                cookie: newCookie,
-                musickey: loginData.musickey,
-                refreshToken: loginData.refresh_token || refreshToken,
-                expire: loginData.musickey_expiretime || null
+            const refreshResult = buildRefreshResult(result.req_0.data, uin)
+            if (!refreshResult.refreshToken && refreshToken) {
+                refreshResult.refreshToken = refreshToken
             }
+            return refreshResult
         }
 
-        const errorMsg = result.req_0?.data?.errmsg || result.req_0?.code || JSON.stringify(result)
+        const errorMsg = result.req_0?.data?.errMsg || result.req_0?.code || JSON.stringify(result)
         return {
             success: false,
             error: `refresh_token刷新失败: ${errorMsg}`
