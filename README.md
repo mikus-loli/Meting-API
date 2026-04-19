@@ -1,147 +1,253 @@
 # Meting-API
 
-https://meting-api-omega.vercel.app/test
+多平台音乐 API 服务，支持网易云音乐和 QQ 音乐，提供完整的 Cookie 管理、VIP 歌曲播放、自动续期和监测通知功能。
 
-## Feature
+## 功能特性
 
-- js实现
-- 插件系统，易于编写新接口及音源
-- 管理后台系统，支持Cookie管理和VIP歌曲播放
+- 双平台支持：网易云音乐、QQ 音乐
+- Cookie 管理系统：增删改查、在线验证、VIP 播放能力检测
+- QQ 音乐 Cookie 自动刷新：支持 musickey 和 refresh_token 两种续期方式
+- Cookie 定时监测：可配置间隔自动检查，失效/VIP 丢失时自动通知
+- Webhook 通知：兼容 Gotify、企业微信、钉钉、飞书等
+- 2FA 双因素认证：TOTP 实现，兼容 Google Authenticator
+- 用户与权限管理：多用户、角色区分、登录失败锁定
+- 管理后台：功能完备的单页应用，响应式设计
+- 多运行时部署：Node.js / Docker / Vercel / Cloudflare Workers
+- Docker 多架构镜像：支持 amd64/arm64，自动 CI/CD 发布
 
-## 进度
+## API 支持矩阵
 
-|               | server参数名称 | 图片 | 歌词 | url | 单曲/song | 歌单/playlist | 歌手/artist | 搜索/search |
-| ------------- | -------------- | ---- | ---- | --- | --------- | ------------- | ----------- |--------- |
-| 网易云        | netease        | √    | √    | √   | √         | √             | √           |√         |
-| qq音乐        | tencent        | √    | √    | √   | √         | √             | ×           |×         |
+| 类型 | 说明 | 网易云 (`netease`) | QQ音乐 (`tencent`) |
+|------|------|:---:|:---:|
+| `song` | 单曲信息 | ✅ | ✅ |
+| `playlist` | 歌单 | ✅ | ✅ |
+| `artist` | 歌手歌曲 | ✅ | ❌ |
+| `search` | 搜索 | ✅ | ❌ |
+| `url` | 播放链接 | ✅ | ✅ |
+| `lrc` | 歌词 | ✅ | ✅ |
+| `pic` | 封面图片 | ✅ | ✅ |
 
 ## 地区限制
 
 ### 部署在国外
 
-| 客户端/浏览器访问地区 | 国内 | 国外 |
-| --------------------- | ---- | ---- |
-| 网易云                | √    | √    |
-| qq音乐                | √¹   | ×    |
-
+| 客户端访问地区 | 国内 | 国外 |
+|:---:|:---:|:---:|
+| 网易云 | ✅ | ✅ |
+| QQ音乐 | ✅¹ | ❌ |
 
 ### 部署在国内
 
-| 客户端/浏览器访问地区 | 国内 | 国外 |
-| --------------------- | ---- | ---- |
-| 网易云                | √    | √    |
-| qq音乐                | √    | ×    |
+| 客户端访问地区 | 国内 | 国外 |
+|:---:|:---:|:---:|
+| 网易云 | ✅ | ✅ |
+| QQ音乐 | ✅ | ❌ |
 
+¹ 使用 JSONP，需要替换前端插件：
+- `https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js` → `https://cdn.jsdelivr.net/npm/@xizeyoupan/meting@latest/dist/Meting.min.js`
+- `https://unpkg.com/meting@2.0.1/dist/Meting.min.js` → `https://unpkg.com/@xizeyoupan/meting@latest/dist/Meting.min.js`
 
-¹使用jsonp，**需要替换前端插件**， https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js => https://cdn.jsdelivr.net/npm/@xizeyoupan/meting@latest/dist/Meting.min.js , or 
-https://unpkg.com/meting@2.0.1/dist/Meting.min.js => https://unpkg.com/@xizeyoupan/meting@latest/dist/Meting.min.js
+详见 [MetingJS](https://github.com/xizeyoupan/MetingJS)
 
-More info https://github.com/xizeyoupan/MetingJS
+## 快速开始
+
+### 环境要求
+
+- Node.js >= 18.0.0
+
+### 手动部署
+
+```bash
+git clone https://github.com/mikus-loli/Meting-API.git
+cd Meting-API
+npm install
+node node.js
+```
+
+部署成功后访问 `http://localhost:3000/test` 验证服务是否正常运行。
+
+### Docker 部署
+
+```bash
+docker pull ghcr.io/mikus-loli/meting-api:latest
+docker run -d --name meting -p 3000:3000 ghcr.io/mikus-loli/meting-api:latest
+```
+
+持久化数据：
+
+```bash
+docker run -d --name meting \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  ghcr.io/mikus-loli/meting-api:latest
+```
+
+自定义端口和用户：
+
+```bash
+docker run -d --name meting \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  -e UID=1000 \
+  -e GID=1000 \
+  -v ./data:/app/data \
+  ghcr.io/mikus-loli/meting-api:latest
+```
+
+### Vercel 部署
+
+<a href="https://vercel.com/import/project?template=https://github.com/mikus-loli/Meting-API"><img src="https://vercel.com/button" height="36"></a>
+
+点击按钮后按提示操作即可。Vercel 部署时 `OVERSEAS` 自动设为 `1`。
+
+> **注意**：Vercel/Cloudflare Workers 运行时不支持管理后台功能（依赖文件系统），仅提供基础 API 服务。
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3000` | 服务监听端口 |
+| `OVERSEAS` | `false` | 海外模式。Vercel/Cloudflare 运行时自动设为 `true` |
+| `ADMIN_PATH` | `admin` | 管理后台路径。如设为 `secret-admin`，则后台地址为 `/secret-admin` |
+| `DATA_DIR` | `./data` | 数据存储目录 |
+| `UID` | `1010` | Docker 容器用户 UID |
+| `GID` | `1010` | Docker 容器用户 GID |
+
+## 使用方法
+
+### 前端插件集成
+
+在导入 [MetingJS](https://github.com/xizeyoupan/MetingJS) 前添加：
+
+```html
+<script>
+var meting_api='http://your-domain/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
+</script>
+```
+
+### API 请求示例
+
+```
+GET /api?server=netease&type=playlist&id=7326220405
+GET /api?server=tencent&type=song&id=004Yi5BD3ksoAN
+GET /api?server=netease&type=url&id=22704470
+GET /api?server=tencent&type=lrc&id=004Yi5BD3ksoAN
+```
+
+### 响应格式
+
+- `type=url`：以 `@` 开头返回纯文本，否则 302 重定向到音频 URL
+- `type=pic`：302 重定向到图片 URL
+- `type=lrc`：返回纯文本歌词（含翻译合并）
+- 其他类型：返回 JSON 数组
 
 ## 管理后台
 
-访问 `/admin` 进入管理后台，默认账号密码：`admin` / `admin123`
+访问 `/{ADMIN_PATH}`（默认 `/admin`）进入管理后台。
 
-### 功能特性
+默认账号密码：`admin` / `admin123`，**请登录后立即修改默认密码**。
 
-- **Cookie管理**：添加、编辑、删除和查看网易云音乐/QQ音乐的Cookie
-- **VIP歌曲支持**：通过添加VIP账号Cookie，解锁VIP歌曲播放权限
-- **用户管理**：管理员可添加、编辑、删除用户账户
-- **操作日志**：记录所有关键操作，便于审计追踪
-- **权限控制**：区分管理员和普通用户权限
+### 功能模块
 
-### Cookie获取方法
+| 模块 | 功能 |
+|------|------|
+| 仪表盘 | Cookie 统计、有效 Cookie 数、用户数、操作记录 |
+| Cookie 管理 | 增删改查、在线验证、QQ音乐刷新、获取教程 |
+| Cookie 监测 | 定时检查、自动刷新、Webhook 通知、监测历史 |
+| 用户管理 | 增删改查、角色分配（管理员专属） |
+| 操作日志 | 所有操作记录查看 |
+| 设置 | 个人资料、密码修改、后台路径修改、2FA 设置 |
+
+### Cookie 获取方法
 
 #### 网易云音乐
-1. 登录网易云音乐网页版 (music.163.com)
-2. 打开浏览器开发者工具 (F12)
-3. 切换到 Network 标签
-4. 刷新页面，找到任意请求
-5. 在请求头中找到 Cookie 字段，复制完整内容
-6. 粘贴到管理后台的 Cookie 输入框
+
+1. 登录 [music.163.com](https://music.163.com)
+2. 按 F12 打开开发者工具
+3. 切换到 Network 标签，刷新页面
+4. 找到任意请求，复制请求头中的 Cookie 字段
+5. 粘贴到管理后台的 Cookie 输入框
 
 #### QQ音乐
-1. 登录QQ音乐网页版 (y.qq.com)
-2. 打开浏览器开发者工具 (F12)
-3. 切换到 Application 标签
-4. 在 Cookies 下找到 y.qq.com
-5. 复制 `uin` 和 `qqmusic_key` 的值
-6. 格式：`uin=你的uin; qqmusic_key=你的key`
 
-### API接口
+1. 登录 [y.qq.com](https://y.qq.com)
+2. 按 F12 打开开发者工具
+3. 切换到 Application → Cookies → y.qq.com
+4. 复制 `uin` 和 `qqmusic_key` 的值
+5. 格式：`uin=你的uin; qqmusic_key=你的key`
 
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/admin/login` | POST | 用户登录 |
-| `/admin/logout` | POST | 用户登出 |
-| `/admin/cookies` | GET | 获取Cookie列表 |
-| `/admin/cookies` | POST | 添加Cookie |
-| `/admin/cookies/:id` | PUT | 更新Cookie |
-| `/admin/cookies/:id` | DELETE | 删除Cookie |
-| `/admin/users` | GET | 获取用户列表 |
-| `/admin/users` | POST | 添加用户 |
-| `/admin/logs` | GET | 获取操作日志 |
+> **提示**：QQ音乐的完整 Cookie（包含 `psrf_qqrefresh_token`）支持自动续期，建议复制所有字段。
 
-## 参数配置
-以下参数均由环境变量配置
+### QQ音乐 Cookie 自动续期
 
-- OVERSEAS
-  用于判断是否部署于国外。设为1会启用qq音乐的jsonp返回，同时需要替换[前端插件](https://github.com/xizeyoupan/MetingJS)，能实现国内访问国外api服务解析qq音乐。部署在国内不用设置这个选项。当部署到vercel上时，此选项自动设为1。
-- PORT
-  api监听端口，也是docker需要映射的端口。默认3000
-- ADMIN_PATH
-  管理后台路径，用于隐藏管理后台入口。默认 `admin`。例如设置为 `secret-admin-2024`，则管理后台地址为 `/secret-admin-2024`
-- UID
-  用于docker，默认1010
-- GID
-  用于docker，默认1010
-- DATA_DIR
-  数据存储目录，默认 `./data`
+系统支持 QQ音乐 Cookie 自动刷新，无需手动更新：
 
-## 安全特性
+- **刷新方式**：优先使用 `refresh_token`，失败后回退到 `musickey`
+- **触发条件**：Cookie 监测检测到 VIP 播放能力丢失时自动触发
+- **手动刷新**：在 Cookie 管理页面点击「刷新」按钮
+- **刷新后更新**：`qqmusic_key`、`qm_keyst`、`access_token`、`openid`、过期时间等字段
 
-- **登录失败限制**：连续5次登录失败后，账户将被锁定15分钟
-- **隐藏管理入口**：可通过 `ADMIN_PATH` 环境变量或管理后台设置自定义管理后台路径
-- **动态路径修改**：管理员可在后台"设置"页面修改管理入口路径，修改后重启服务生效
-- **首次登录建议**：请登录后立即修改默认密码
+## Cookie 监测系统
 
-## Cookie监测系统
+### 功能
 
-系统提供定时监测Cookie有效性的功能，当Cookie失效时可自动发送Webhook通知。
-
-### 功能特性
-
-- **定时监测**：可配置监测间隔（5分钟-24小时）
-- **失效通知**：通过Webhook发送标准化通知消息
-- **监测历史**：记录所有监测事件和通知发送记录
-- **手动检查**：支持立即执行一次检查
+- 定时监测 Cookie 有效性（间隔 5 分钟 ~ 24 小时）
+- 检测 VIP 播放能力丢失
+- QQ音乐 Cookie 自动刷新续期
+- Webhook 通知（Cookie 失效、VIP 丢失、刷新成功）
 
 ### 配置步骤
 
-1. 登录管理后台，进入"Cookie监测"页面
-2. 在"监测设置"区域：
-   - 勾选"启用定时监测"
-   - 设置检查间隔（默认60分钟）
-   - 点击"保存设置"
-3. 在"Webhook通知设置"区域：
-   - 勾选"启用Webhook通知"
-   - 填写Webhook URL（支持企业微信、钉钉、飞书等）
-   - 点击"测试发送"验证配置
-   - 点击"保存Webhook"
+1. 登录管理后台 → Cookie 监测
+2. 启用定时监测，设置检查间隔
+3. 配置 Webhook 通知（可选）
+4. 保存设置
 
-### Webhook消息格式
+### Webhook 消息格式
 
 ```json
 {
-  "message": "平台: 网易云音乐\n备注: VIP账号\n失效时间: 2024-01-15 18:30:00\n原因: Cookie已失效\n\n请及时更新Cookie以确保服务正常",
   "title": "Cookie失效通知 - 网易云音乐",
+  "message": "平台: 网易云音乐\n备注: VIP账号\n失效时间: 2024-01-15 18:30:00\n原因: Cookie已失效\n\n请及时更新Cookie以确保服务正常",
   "priority": 5
 }
 ```
 
-### 自定义Headers
+### 通知事件优先级
 
-如需添加认证等自定义请求头，可在"自定义Headers"中输入JSON格式：
+| 事件 | 优先级 |
+|------|--------|
+| Cookie 失效 | 5 |
+| VIP 播放能力丢失 | 4 |
+| Cookie 自动刷新成功 | 3 |
+
+### 常用 Webhook 配置
+
+#### Gotify（推荐）
+
+1. 部署 Gotify 服务端
+2. 创建应用，获取 Token
+3. Webhook URL：`https://your-gotify-server/message?token=YOUR_TOKEN`
+
+#### 企业微信
+
+1. 群聊中添加机器人
+2. 获取 Webhook 地址填入
+
+#### 钉钉
+
+1. 群聊中添加自定义机器人
+2. 安全设置选择「自定义关键词」，添加「Cookie」
+3. 获取 Webhook 地址填入
+
+#### 飞书
+
+1. 群聊中添加自定义机器人
+2. 获取 Webhook 地址填入
+
+### 自定义 Headers
+
+如需添加认证头，在「自定义 Headers」中输入 JSON：
 
 ```json
 {
@@ -149,231 +255,190 @@ More info https://github.com/xizeyoupan/MetingJS
 }
 ```
 
-### 常用Webhook配置
+## 安全特性
 
-#### Gotify（推荐）
+| 特性 | 说明 |
+|------|------|
+| 登录失败锁定 | 连续 5 次失败后锁定 15 分钟 |
+| 隐藏管理入口 | 通过 `ADMIN_PATH` 自定义后台路径 |
+| 动态路径修改 | 管理员可在后台设置页面修改路径，重启生效 |
+| 2FA 双因素认证 | TOTP 实现，兼容 Google Authenticator / Authy |
+| 非 root 运行 | Docker 容器以 `meting` 用户运行 |
 
-Gotify 是一个开源的自托管消息推送服务。
+## 管理 API
 
-1. 部署 Gotify 服务端
-2. 在 Gotify 中创建应用，获取 Token
-3. Webhook URL 填入：`https://your-gotify-server/message?token=YOUR_TOKEN`
-4. 无需配置 Headers
+### 认证
 
-消息格式完全兼容 Gotify API：
-```json
-{
-  "title": "Cookie失效通知 - 网易云音乐",
-  "message": "平台: 网易云音乐\n备注: VIP账号\n失效时间: 2024-01-15 18:30:00\n原因: Cookie已失效\n\n请及时更新Cookie以确保服务正常",
-  "priority": 5
+所有管理 API 需在请求头中携带认证信息：
+
+```
+X-Auth-Username: your-username
+X-Auth-Token: your-token
+```
+
+### 端点列表
+
+#### 认证
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/admin/login` | 登录（支持 2FA） |
+| POST | `/admin/logout` | 登出 |
+| GET | `/admin/check` | 检查登录状态 |
+
+#### Cookie 管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/cookies` | Cookie 列表（支持 `?platform=` 筛选） |
+| GET | `/admin/cookies/:id` | Cookie 详情 |
+| POST | `/admin/cookies` | 添加 Cookie |
+| PUT | `/admin/cookies/:id` | 更新 Cookie |
+| DELETE | `/admin/cookies/:id` | 删除 Cookie |
+| POST | `/admin/cookies/:id/verify` | 验证 Cookie |
+| POST | `/admin/cookies/:id/refresh` | 刷新 QQ 音乐 Cookie |
+| POST | `/admin/cookies/validate` | 在线验证（不保存） |
+
+#### 用户管理（管理员）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/users` | 用户列表 |
+| POST | `/admin/users` | 添加用户 |
+| PUT | `/admin/users/:username` | 更新用户 |
+| DELETE | `/admin/users/:username` | 删除用户 |
+| PUT | `/admin/profile` | 修改当前用户资料 |
+| PUT | `/admin/password` | 修改当前用户密码 |
+
+#### Cookie 监测（管理员）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/monitor` | 监测配置 |
+| PUT | `/admin/monitor` | 更新监测配置 |
+| GET | `/admin/monitor/status` | 运行状态 |
+| POST | `/admin/monitor/check` | 立即检查 |
+| GET | `/admin/monitor/logs` | 监测日志 |
+
+#### Webhook（管理员）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/webhook` | Webhook 配置 |
+| PUT | `/admin/webhook` | 更新配置 |
+| POST | `/admin/webhook/test` | 测试发送 |
+
+#### 2FA
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/2fa/status` | 2FA 状态 |
+| POST | `/admin/2fa/setup` | 初始化设置 |
+| POST | `/admin/2fa/enable` | 启用 2FA |
+| POST | `/admin/2fa/disable` | 禁用 2FA |
+
+#### 其他
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/admin/logs` | 操作日志 |
+| GET | `/admin/config` | 系统配置（管理员） |
+| PUT | `/admin/config/admin-path` | 修改后台路径（管理员） |
+
+## 反向代理
+
+### Nginx
+
+```nginx
+server {
+    listen 8099;
+    server_name localhost;
+
+    location /meting/ {
+        proxy_pass http://localhost:3000/;
+        proxy_set_header X-Forwarded-Host $scheme://$host:$server_port/meting;
+    }
 }
 ```
 
-#### 企业微信
-
-1. 在企业微信群中添加机器人
-2. 获取Webhook地址
-3. 直接填入Webhook URL即可
-
-#### 钉钉
-
-1. 在钉钉群中添加自定义机器人
-2. 安全设置选择"自定义关键词"，添加"Cookie"
-3. 获取Webhook地址填入
-
-#### 飞书
-
-1. 在飞书群中添加自定义机器人
-2. 获取Webhook地址填入
-
-## 部署
-
-部署 Meting-API 需要基本的计算机编程常识，如果您在部署过程中遇到无法解决的问题请到 issues 向我们提问，我们会尽快给您答复。
-
-如果部署成功，在你的域名后拼接上`/test`，理论上出现类似下图数据：
-
-![](assets/test.png)
-
-### 手动部署
-
-需要克隆项目到本地，node版本>=18。
+### Caddy
 
 ```
-npm i
-```
-
-#### Node
-
-`node node.js`
-
-<details>
-
-<summary>Deprecated</summary>
-
-#### Deno
-
-`deno run --allow-net --allow-env dist/deno.js`
-
-或者直接下载action中的文件运行。
-
-</details>
-
-### Docker部署
-
-运行下面的命令下载 Meting-API 镜像
-
-```
-docker pull intemd/meting-api:latest
-```
-
-然后运行 Meting-API 即可
-
-```
-docker run -d --name meting -p 3000:3000 intemd/meting-api:latest
-```
-
-### 部署到vercel
-
-比较出名，提供的域名被阻断，使用自有域名后速度尚可。冷启动速度一般。
-
-<a href="https://vercel.com/import/project?template=https://github.com/xizeyoupan/Meting-API"><img src="https://vercel.com/button" height="36"></a>
-
-一直下一步即可。
-
-<details>
-
-<summary>Deprecated</summary>
-
-### Deno Deploy
-
-类似Cloudflare Workers，但提供的域名未被阻断，使用Deno为runtime。
-
-fork本项目后新建一个[project](https://dash.deno.com/projects)，首先在设置中加一个Environment Variable，名称是OVERSEAS，值为1。接着link到你自己的项目，部署方式选action，Deno Deploy 的 project 的 name 需要与你自己的yml中设置的吻合。
-
-```yml
-        uses: denoland/deployctl@v1
-        with:
-          project: meting #这里要改成你的Deno Deploy的project的name
-          entrypoint: deno.js
-```
-
-接着在actions/publish/run workflow中勾选Deno即可。
-
-</details>
-
-## 杂项
-
-### 反向代理
-
-使用用nginx，让请求 `http://localhost:8099/meting` 的流量全部转发到 `http://localhost:3000` ，不能这么写：
-
-```
-   server {
-      listen       8099;
-      server_name  localhost;
-
-      location /meting/ {
-         proxy_pass http://localhost:3000/;
-      }
-   }
-```
-
-正确写法：
-
-- nginx
-
-   ```
-   server {
-      listen       8099;
-      server_name  localhost;
-
-      location /meting/ {
-         proxy_pass http://localhost:3000/;
-         proxy_set_header X-Forwarded-Host $scheme://$host:$server_port/meting;
-      }
-   }
-   ```
-
-- caddy
-  
-  ```
-   http://localhost:8099 {
-         handle_path /meting* {
-                  reverse_proxy http://localhost:3000 {
-                        header_up X-Forwarded-Host {scheme}://{host}:{port}/meting
-                  }
-         }
-   }
-  ```
-
-### SSL证书
-
-在上面基础上改动即可。
-
-- nginx
-  ```
-      server {
-        listen       8099 ssl;
-        server_name  localhost;
-
-        ssl_certificate     ../server.crt;  # pem文件的路径
-        ssl_certificate_key  ../server.key; # key文件的路径
-        ssl_session_timeout 5m;
-        ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_prefer_server_ciphers on;
-
-        location /meting/ {
-            proxy_pass http://localhost:3000/;
-            proxy_set_header X-Forwarded-Host $scheme://$host:$server_port/meting;
-        }
-      }
-  ```
-
-- caddy
-  ```
-   https://localhost:8099 {
-      tls ./server.crt ./server.key
-      handle_path /meting* {
-         reverse_proxy http://localhost:3000 {
+http://localhost:8099 {
+    handle_path /meting* {
+        reverse_proxy http://localhost:3000 {
             header_up X-Forwarded-Host {scheme}://{host}:{port}/meting
-         }
-      }
-   }
-  ```
-
-## 使用
-
-在导入[前端插件](https://github.com/xizeyoupan/MetingJS)前，加入
-
-```
-<script>
-var meting_api='http://example.com/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
-</script>
+        }
+    }
+}
 ```
 
-比如
+### SSL 配置
+
+#### Nginx
+
+```nginx
+server {
+    listen 8099 ssl;
+    server_name localhost;
+
+    ssl_certificate     ../server.crt;
+    ssl_certificate_key ../server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    location /meting/ {
+        proxy_pass http://localhost:3000/;
+        proxy_set_header X-Forwarded-Host $scheme://$host:$server_port/meting;
+    }
+}
+```
+
+#### Caddy
 
 ```
-<script>
-var meting_api='http://localhost:3000/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
-</script>
+https://localhost:8099 {
+    tls ./server.crt ./server.key
+    handle_path /meting* {
+        reverse_proxy http://localhost:3000 {
+            header_up X-Forwarded-Host {scheme}://{host}:{port}/meting
+        }
+    }
+}
 ```
 
-即可。就这样吧，那我去看vtb了，88
+## 常见问题
 
-### 相关项目
+### QQ音乐无法播放？
 
-https://github.com/metowolf/MetingJS
+- 确认部署在国内服务器
+- 确认添加了有效的 VIP Cookie
+- 尝试使用包含 `psrf_qqrefresh_token` 的完整 Cookie 以支持自动续期
 
-https://github.com/metowolf/Meting-API
+### Cookie 刷新失败？
 
-https://github.com/honojs/hono
+- 检查 Cookie 是否已完全过期（超过 90 天）
+- 尝试重新登录获取新 Cookie
+- 确保 Cookie 中包含 `psrf_qqrefresh_token` 字段
 
-https://github.com/honojs/node-server
+### Docker 数据持久化？
 
-https://github.com/camsong/fetch-jsonp
+使用 `-v` 挂载数据目录：
 
-https://github.com/Binaryify/NeteaseCloudMusicApi
+```bash
+docker run -d -p 3000:3000 -v ./data:/app/data ghcr.io/mikus-loli/meting-api:latest
+```
 
-https://github.com/jsososo/QQMusicApi
+### 忘记管理后台路径？
+
+检查 `DATA_DIR/config.json` 中的 `adminPath` 字段，或通过环境变量 `ADMIN_PATH` 重新指定。
+
+## 相关项目
+
+- [MetingJS](https://github.com/xizeyoupan/MetingJS) - 前端音乐播放插件
+- [Hono](https://github.com/honojs/hono) - Web 框架
+- [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) - 网易云音乐 API
+- [QQMusicApi](https://github.com/jsososo/QQMusicApi) - QQ 音乐 API
+
+## License
+
+MIT
