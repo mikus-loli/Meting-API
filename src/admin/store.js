@@ -280,6 +280,18 @@ class DataStore {
             return { success: false, error: formatValidation.error }
         }
 
+        if (note) {
+            for (const [existingId, existingCookie] of this.cookies) {
+                if (existingCookie.platform === platform && existingCookie.note === note) {
+                    const updateResult = await this.updateCookie(existingId, { cookie: cookieData, note }, username, skipValidation)
+                    if (updateResult.success) {
+                        await this.addLog('cookie_update', `覆盖${platform} Cookie: ${note}`, username)
+                    }
+                    return updateResult
+                }
+            }
+        }
+
         const id = this.generateId()
         const cookie = {
             id,

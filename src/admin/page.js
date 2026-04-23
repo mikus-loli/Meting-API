@@ -1411,9 +1411,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                         vipAbilityText = '<span style="color:var(--danger);">✗ 不可播放VIP音乐</span>';
                     }
                 }
-                const refreshBtn = cookie.platform === 'tencent' 
-                    ? '<button class="btn btn-warning btn-sm" onclick="refreshCookie(\\'' + cookie.id + '\\')">刷新</button>' 
-                    : '';
                 return '<tr>' +
                     '<td><span class="badge badge-primary">' + getPlatformName(cookie.platform) + '</span></td>' +
                     '<td class="cookie-preview" title="' + (cookie.cookiePreview || '') + '">' + (cookie.cookiePreview || '-') + '</td>' +
@@ -1425,7 +1422,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                     '<td>' + formatDate(cookie.createdAt) + '</td>' +
                     '<td class="actions">' +
                         '<button class="btn btn-success btn-sm" onclick="verifyCookie(\\'' + cookie.id + '\\')">验证</button>' +
-                        refreshBtn +
                         '<button class="btn btn-default btn-sm" onclick="editCookie(\\'' + cookie.id + '\\')">编辑</button>' +
                         '<button class="btn btn-danger btn-sm" onclick="deleteCookie(\\'' + cookie.id + '\\')">删除</button>' +
                     '</td></tr>';
@@ -1546,7 +1542,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                             case 'check_complete': typeText = '检查完成'; typeClass = 'badge-success'; break;
                             case 'check_error': typeText = '检查错误'; typeClass = 'badge-error'; break;
                             case 'cookie_invalid': typeText = 'Cookie失效'; typeClass = 'badge-error'; break;
-                            case 'cookie_refreshed': typeText = 'Cookie刷新'; typeClass = 'badge-success'; break;
                             case 'vip_lost': typeText = 'VIP丢失'; typeClass = 'badge-warning'; break;
                             case 'webhook_sent': typeText = '通知发送'; typeClass = log.success ? 'badge-success' : 'badge-error'; break;
                             case 'webhook_error': typeText = '通知失败'; typeClass = 'badge-error'; break;
@@ -1555,7 +1550,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                         let details = '';
                         if (log.type === 'check_complete') details = '检查了 ' + log.totalChecked + ' 个Cookie';
                         else if (log.type === 'cookie_invalid') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.reason;
-                        else if (log.type === 'cookie_refreshed') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.result;
                         else if (log.type === 'vip_lost') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.reason;
                         else if (log.type === 'webhook_sent') details = '状态码: ' + log.statusCode;
                         else if (log.error) details = log.error;
@@ -1617,15 +1611,6 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 } else showToast('Cookie验证失败: ' + (res.data.validationError || '无效'), 'error');
                 loadCookies(); loadDashboard();
             } else showToast(res?.error || '验证失败', 'error');
-        };
-
-        const refreshCookie = async (id) => {
-            showToast('正在刷新Cookie...', 'success');
-            const res = await api('/admin/cookies/' + id + '/refresh', { method: 'POST' });
-            if (res?.success) {
-                showToast('Cookie刷新成功');
-                loadCookies(); loadDashboard();
-            } else showToast(res?.error || '刷新失败', 'error');
         };
 
         const deleteCookie = async (id) => {

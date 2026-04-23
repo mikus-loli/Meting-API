@@ -1,6 +1,5 @@
 import store from './store.js'
 import { validateCookie } from './cookie-validator.js'
-import { refreshTencentCookie, refreshTencentCookieByRefreshToken } from '../providers/tencent/refresh.js'
 
 class CookieMonitor {
     constructor() {
@@ -145,16 +144,7 @@ class CookieMonitor {
     async handleVipLost(cookie) {
         const platformName = cookie.platform === 'netease' ? '网易云音乐' : 'QQ音乐'
         
-        console.log(`[CookieMonitor] VIP播放能力丢失: ${platformName} - ${cookie.note || cookie.id}`)
-
-        if (cookie.platform === 'tencent') {
-            console.log(`[CookieMonitor] 尝试自动刷新QQ音乐Cookie...`)
-            const refreshResult = await this.refreshTencentCookie(cookie)
-            if (refreshResult.success) {
-                console.log(`[CookieMonitor] QQ音乐Cookie自动刷新成功`)
-                return
-            }
-        }
+        console.log(`[CookieMonitor] VIP播放能力丢失，自动删除Cookie: ${platformName} - ${cookie.note || cookie.id}`)
 
         await store.addMonitorLog({
             type: 'vip_lost',
@@ -162,93 +152,17 @@ class CookieMonitor {
             platform: cookie.platform,
             platformName: platformName,
             note: cookie.note,
-            reason: 'VIP播放能力已丢失，仅能播放试听版本'
+            reason: 'VIP播放能力已丢失，Cookie已自动删除'
         })
 
         await this.sendWebhookNotification({
             event: 'vip_lost',
             title: `VIP播放能力丢失 - ${platformName}`,
-            message: `平台: ${platformName}\n备注: ${cookie.note || '无'}\n发现时间: ${new Date().toLocaleString('zh-CN')}\n状态: Cookie有效但无法播放VIP音乐\n\n请检查VIP会员状态或更新Cookie`,
+            message: `平台: ${platformName}\n备注: ${cookie.note || '无'}\n发现时间: ${new Date().toLocaleString('zh-CN')}\n状态: Cookie有效但无法播放VIP音乐\n\nCookie已自动删除，请重新添加有效的VIP Cookie`,
             priority: 4
         })
-    }
 
-    async refreshTencentCookie(cookie) {
-        try {
-            let refreshResult = null
-            const cookieObj = this.parseCookieString(cookie.cookie)
-            const refreshToken = cookieObj.psrf_qqrefresh_token || cookie.refreshToken
-            
-            if (refreshToken) {
-                refreshResult = await refreshTencentCookieByRefreshToken(refreshToken, cookieObj.uin)
-            }
-            
-            if (!refreshResult || !refreshResult.success) {
-                refreshResult = await refreshTencentCookie(cookie.cookie)
-            }
-
-            if (refreshResult.success) {
-                const mergedCookie = this.mergeCookieString(cookie.cookie, refreshResult.cookie)
-                
-                const updateData = {
-                    cookie: mergedCookie,
-                    validatedAt: Date.now()
-                }
-                
-                if (refreshResult.refreshToken) {
-                    updateData.refreshToken = refreshResult.refreshToken
-                } else if (refreshToken) {
-                    updateData.refreshToken = refreshToken
-                }
-
-                await store.updateCookie(cookie.id, updateData, 'monitor', true)
-
-                await store.addMonitorLog({
-                    type: 'cookie_refreshed',
-                    cookieId: cookie.id,
-                    platform: 'tencent',
-                    platformName: 'QQ音乐',
-                    note: cookie.note,
-                    result: 'Cookie自动刷新成功'
-                })
-
-                await this.sendWebhookNotification({
-                    event: 'cookie_refreshed',
-                    title: `Cookie自动刷新成功 - QQ音乐`,
-                    message: `平台: QQ音乐\n备注: ${cookie.note || '无'}\n刷新时间: ${new Date().toLocaleString('zh-CN')}\n状态: Cookie已自动续期\n\n无需手动操作`,
-                    priority: 3
-                })
-
-                return { success: true }
-            }
-
-            return { success: false, error: refreshResult.error }
-        } catch (e) {
-            console.error(`[CookieMonitor] 刷新QQ音乐Cookie出错:`, e.message)
-            return { success: false, error: e.message }
-        }
-    }
-
-    mergeCookieString(originalCookie, newCookie) {
-        const original = this.parseCookieString(originalCookie)
-        const updated = this.parseCookieString(newCookie)
-        const merged = { ...original, ...updated }
-        return Object.entries(merged)
-            .filter(([_, value]) => value)
-            .map(([key, value]) => `${key}=${value}`)
-            .join('; ')
-    }
-
-    parseCookieString(cookieString) {
-        if (!cookieString) return {}
-        const cookies = {}
-        cookieString.split(';').forEach(item => {
-            const [key, value] = item.trim().split('=')
-            if (key && value) {
-                cookies[key] = value
-            }
-        })
-        return cookies
+        await store.deleteCookie(cookie.id, 'monitor', true)
     }
 
     async sendWebhookNotification(data) {
