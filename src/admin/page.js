@@ -1543,6 +1543,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
                             case 'check_error': typeText = '检查错误'; typeClass = 'badge-error'; break;
                             case 'cookie_invalid': typeText = 'Cookie失效'; typeClass = 'badge-error'; break;
                             case 'vip_lost': typeText = 'VIP丢失'; typeClass = 'badge-warning'; break;
+                            case 'vip_unavailable': typeText = '无VIP'; typeClass = 'badge-warning'; break;
                             case 'webhook_sent': typeText = '通知发送'; typeClass = log.success ? 'badge-success' : 'badge-error'; break;
                             case 'webhook_error': typeText = '通知失败'; typeClass = 'badge-error'; break;
                             default: typeText = log.type; typeClass = 'badge-info';
@@ -1551,6 +1552,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
                         if (log.type === 'check_complete') details = '检查了 ' + log.totalChecked + ' 个Cookie';
                         else if (log.type === 'cookie_invalid') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.reason;
                         else if (log.type === 'vip_lost') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.reason;
+                        else if (log.type === 'vip_unavailable') details = log.platformName + ': ' + (log.note || log.cookieId) + ' - ' + log.reason;
                         else if (log.type === 'webhook_sent') details = '状态码: ' + log.statusCode;
                         else if (log.error) details = log.error;
                         return '<tr><td>' + formatDate(log.timestamp) + '</td><td><span class="badge ' + typeClass + '">' + typeText + '</span></td><td>' + details + '</td></tr>';

@@ -101,8 +101,13 @@ class CookieMonitor {
                 await this.handleCookieInvalid(cookie, result.error)
             }
 
-            if (nowValid && wasCanPlayVip === true && nowCanPlayVip === false) {
-                await this.handleVipLost(cookie)
+            if (nowValid && nowCanPlayVip === false) {
+                console.log(`[CookieMonitor] 检测到无法播放VIP: ${cookie.note || cookie.id}, wasCanPlayVip: ${wasCanPlayVip}, nowCanPlayVip: ${nowCanPlayVip}`)
+                if (wasCanPlayVip === true) {
+                    await this.handleVipLost(cookie)
+                } else {
+                    await this.handleVipUnavailable(cookie)
+                }
             }
 
             await store.updateCookie(cookie.id, {
@@ -163,6 +168,28 @@ class CookieMonitor {
         })
 
         await store.deleteCookie(cookie.id, 'monitor', true)
+    }
+
+    async handleVipUnavailable(cookie) {
+        const platformName = cookie.platform === 'netease' ? '网易云音乐' : 'QQ音乐'
+        
+        console.log(`[CookieMonitor] Cookie无法播放VIP音乐: ${platformName} - ${cookie.note || cookie.id}`)
+
+        await store.addMonitorLog({
+            type: 'vip_unavailable',
+            cookieId: cookie.id,
+            platform: cookie.platform,
+            platformName: platformName,
+            note: cookie.note,
+            reason: 'Cookie有效但无法播放VIP音乐'
+        })
+
+        await this.sendWebhookNotification({
+            event: 'vip_unavailable',
+            title: `无法播放VIP音乐 - ${platformName}`,
+            message: `平台: ${platformName}\n备注: ${cookie.note || '无'}\n发现时间: ${new Date().toLocaleString('zh-CN')}\n状态: Cookie有效但无法播放VIP音乐\n\n请检查VIP会员状态或更新Cookie`,
+            priority: 4
+        })
     }
 
     async sendWebhookNotification(data) {
