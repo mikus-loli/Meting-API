@@ -778,6 +778,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 <li class="active" data-section="dashboard"><span class="menu-icon">📊</span><span class="menu-text">仪表盘</span></li>
                 <li data-section="cookies"><span class="menu-icon">🍪</span><span class="menu-text">Cookie管理</span></li>
                 <li data-section="monitor"><span class="menu-icon">🔔</span><span class="menu-text">Cookie监测</span></li>
+                <li data-section="tokens"><span class="menu-icon">🔑</span><span class="menu-text">API Token</span></li>
                 <li data-section="users"><span class="menu-icon">👥</span><span class="menu-text">用户管理</span></li>
                 <li data-section="logs"><span class="menu-icon">📋</span><span class="menu-text">操作日志</span></li>
                 <li data-section="settings"><span class="menu-icon">⚙️</span><span class="menu-text">设置</span></li>
@@ -947,6 +948,31 @@ const getAdminHtml = () => `<!DOCTYPE html>
                             <table class="table">
                                 <thead><tr><th>时间</th><th>操作类型</th><th>详情</th><th>操作人</th></tr></thead>
                                 <tbody id="logsList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-section" id="tokensSection">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4>🔑 API Token 管理</h4>
+                            <button class="btn btn-primary" onclick="showTokenModal()">创建 Token</button>
+                        </div>
+                        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">API Token 用于程序化访问管理接口，使用 <code>Authorization: Bearer &lt;token&gt;</code> 请求头认证。</p>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>名称</th>
+                                        <th>Token</th>
+                                        <th>创建时间</th>
+                                        <th>最后使用</th>
+                                        <th>使用次数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tokensList"></tbody>
                             </table>
                         </div>
                     </div>
@@ -1185,6 +1211,53 @@ const getAdminHtml = () => `<!DOCTYPE html>
         </div>
     </div>
 
+    <div class="modal" id="tokenModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="tokenModalTitle">创建 API Token</h3>
+                <button class="modal-close" onclick="closeModal('tokenModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="tokenForm">
+                    <div class="form-group">
+                        <label>Token 名称</label>
+                        <input type="text" id="tokenName" required placeholder="例如: 自动化脚本">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" onclick="closeModal('tokenModal')">取消</button>
+                <button type="submit" class="btn btn-primary" onclick="createToken()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="tokenShowModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✅ Token 已创建</h3>
+                <button class="modal-close" onclick="closeModal('tokenShowModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">请立即复制并妥善保存此 Token，关闭后将无法再次查看完整内容。</p>
+                <div class="form-group">
+                    <label>Token</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="createdToken" readonly style="font-family:monospace;font-size:12px;">
+                        <button type="button" class="btn btn-primary" onclick="copyCreatedToken()">复制</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>使用示例</label>
+                    <pre style="background:var(--bg);padding:12px;border-radius:var(--radius-sm);font-size:11px;overflow-x:auto;">curl -H "Authorization: Bearer &lt;token&gt;" http://your-api/admin/cookies</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="closeModal('tokenShowModal')">我已保存</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let authToken = localStorage.getItem('authToken');
         let authUsername = localStorage.getItem('authUsername');
@@ -1292,12 +1365,13 @@ const getAdminHtml = () => `<!DOCTYPE html>
             document.querySelector('[data-section="' + section + '"]').classList.add('active');
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.getElementById(section + 'Section').classList.add('active');
-            const titles = { dashboard: '仪表盘', cookies: 'Cookie管理', monitor: 'Cookie监测', users: '用户管理', logs: '操作日志', settings: '设置' };
+            const titles = { dashboard: '仪表盘', cookies: 'Cookie管理', monitor: 'Cookie监测', tokens: 'API Token', users: '用户管理', logs: '操作日志', settings: '设置' };
             document.getElementById('pageTitle').textContent = titles[section];
             if (section === 'cookies') loadCookies();
             if (section === 'users') loadUsers();
             if (section === 'logs') loadLogs();
             if (section === 'monitor') loadMonitor();
+            if (section === 'tokens') loadTokens();
         };
 
         const loadDashboard = async () => {
@@ -1370,6 +1444,69 @@ const getAdminHtml = () => `<!DOCTYPE html>
             if (!res?.success) return;
             const tbody = document.getElementById('logsList');
             tbody.innerHTML = res.data.map(log => '<tr><td>' + formatDate(log.timestamp) + '</td><td>' + log.action + '</td><td>' + log.details + '</td><td>' + log.username + '</td></tr>').join('');
+        };
+
+        const loadTokens = async () => {
+            const res = await api('/admin/tokens');
+            if (!res?.success) return;
+            const tbody = document.getElementById('tokensList');
+            if (res.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">🔑</div><div class="empty-state-text">暂无 API Token</div></td></tr>';
+            } else {
+                tbody.innerHTML = res.data.map(token => {
+                    const tokenPreview = token.id.substring(0, 8) + '...';
+                    return '<tr>' +
+                        '<td>' + token.name + '</td>' +
+                        '<td><code style="font-size:11px;color:var(--text-muted);">' + tokenPreview + '</code></td>' +
+                        '<td>' + formatDate(token.createdAt) + '</td>' +
+                        '<td>' + (token.lastUsedAt ? formatDate(token.lastUsedAt) : '-') + '</td>' +
+                        '<td>' + (token.usageCount || 0) + '</td>' +
+                        '<td class="actions">' +
+                            '<button class="btn btn-danger btn-sm" onclick="deleteToken(\\'' + token.id + '\\',\\'' + token.name + '\\')">删除</button>' +
+                        '</td></tr>';
+                }).join('');
+            }
+        };
+
+        const showTokenModal = () => {
+            document.getElementById('tokenForm').reset();
+            document.getElementById('tokenModal').classList.add('show');
+        };
+
+        const createToken = async () => {
+            const name = document.getElementById('tokenName').value.trim();
+            if (!name) {
+                showToast('请输入 Token 名称', 'error');
+                return;
+            }
+            const res = await api('/admin/tokens', {
+                method: 'POST',
+                body: JSON.stringify({ name })
+            });
+            if (res?.success) {
+                closeModal('tokenModal');
+                document.getElementById('createdToken').value = res.data.token;
+                document.getElementById('tokenShowModal').classList.add('show');
+                loadTokens();
+            } else {
+                showToast(res?.error || '创建失败', 'error');
+            }
+        };
+
+        const copyCreatedToken = () => {
+            const token = document.getElementById('createdToken').value;
+            navigator.clipboard.writeText(token).then(() => showToast('已复制到剪贴板'));
+        };
+
+        const deleteToken = async (id, name) => {
+            if (!confirm('确定要删除 Token "' + name + '" 吗？删除后使用该 Token 的应用将无法访问 API。')) return;
+            const res = await api('/admin/tokens/' + id, { method: 'DELETE' });
+            if (res?.success) {
+                showToast('Token 已删除');
+                loadTokens();
+            } else {
+                showToast(res?.error || '删除失败', 'error');
+            }
         };
 
         const loadMonitor = async () => {

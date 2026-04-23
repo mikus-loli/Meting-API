@@ -407,6 +407,60 @@ export const adminRoutes = (app) => {
             return c.json(result, 400)
         }
     })
+
+    app.get('/admin/tokens', authMiddleware, adminMiddleware, async (c) => {
+        const tokens = store.getApiTokens()
+        return c.json({ success: true, data: tokens })
+    })
+
+    app.post('/admin/tokens', authMiddleware, adminMiddleware, async (c) => {
+        const body = await c.req.json()
+        const { name, permissions } = body
+        const operator = c.get('username')
+
+        if (!name) {
+            return c.json({ success: false, error: 'Token名称不能为空' }, 400)
+        }
+
+        const result = await store.createApiToken(name, permissions || [], operator)
+        return c.json(result)
+    })
+
+    app.get('/admin/tokens/:id', authMiddleware, adminMiddleware, async (c) => {
+        const id = c.req.param('id')
+        const token = store.getApiToken(id)
+        if (!token) {
+            return c.json({ success: false, error: 'Token不存在' }, 404)
+        }
+        const { token: _, ...safeToken } = token
+        return c.json({ success: true, data: safeToken })
+    })
+
+    app.put('/admin/tokens/:id', authMiddleware, adminMiddleware, async (c) => {
+        const id = c.req.param('id')
+        const body = await c.req.json()
+        const operator = c.get('username')
+
+        const result = await store.updateApiToken(id, body, operator)
+        if (result.success) {
+            const { token: _, ...safeToken } = result.data
+            return c.json({ success: true, data: safeToken })
+        } else {
+            return c.json(result, 400)
+        }
+    })
+
+    app.delete('/admin/tokens/:id', authMiddleware, adminMiddleware, async (c) => {
+        const id = c.req.param('id')
+        const operator = c.get('username')
+
+        const result = await store.deleteApiToken(id, operator)
+        if (result.success) {
+            return c.json(result)
+        } else {
+            return c.json(result, 404)
+        }
+    })
 }
 
 export default adminRoutes

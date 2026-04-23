@@ -20,6 +20,7 @@ const LOGS_FILE = 'logs.json'
 const SECURITY_FILE = 'security.json'
 const CONFIG_FILE = 'config.json'
 const MONITOR_LOGS_FILE = 'monitor_logs.json'
+const API_TOKENS_FILE = 'api_tokens.json'
 
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCKOUT_DURATION = 15 * 60 * 1000
@@ -92,6 +93,7 @@ class DataStore {
         this.lockedAccounts = new Map()
         this.config = {}
         this.monitorLogs = []
+        this.apiTokens = new Map()
         this.initialized = false
     }
 
@@ -169,6 +171,12 @@ class DataStore {
             if (fs.existsSync(monitorLogsPath)) {
                 this.monitorLogs = JSON.parse(fs.readFileSync(monitorLogsPath, 'utf-8'))
             }
+            
+            const apiTokensPath = path.join(DATA_DIR, API_TOKENS_FILE)
+            if (fs.existsSync(apiTokensPath)) {
+                const data = JSON.parse(fs.readFileSync(apiTokensPath, 'utf-8'))
+                this.apiTokens = new Map(Object.entries(data))
+            }
         } catch (e) {
             console.error('Load data error:', e.message)
         }
@@ -201,6 +209,9 @@ class DataStore {
             const monitorLogsPath = path.join(DATA_DIR, MONITOR_LOGS_FILE)
             const recentMonitorLogs = this.monitorLogs.slice(-500)
             fs.writeFileSync(monitorLogsPath, JSON.stringify(recentMonitorLogs, null, 2))
+            
+            const apiTokensPath = path.join(DATA_DIR, API_TOKENS_FILE)
+            fs.writeFileSync(apiTokensPath, JSON.stringify(Object.fromEntries(this.apiTokens), null, 2))
         } catch (e) {
             console.error('Save data error:', e.message)
         }
@@ -873,6 +884,96 @@ class DataStore {
             .slice()
             .reverse()
             .slice(offset, offset + limit)
+    }
+
+    generateApiToken() {
+        const bytes = nodeCrypto.randomBytes(32)
+        return 'mapi_' + bytes.toString('base64url')
+    }
+
+    async createApiToken(name, permissions = [], operator = 'system') {
+        const id = this.generateId()
+        const token = this.generateApiToken()
+        
+        const tokenData = {
+            id,
+            name,
+            token,
+            permissions,
+            createdAt: Date.now(),
+            createdBy: operator,
+            lastUsedAt: null,
+            usageCount: 0
+        }
+        
+        this.apiTokens.set(id, tokenData)
+        await this.addLog('api_token_create', `创建API Token: ${name}`, operator)
+        await this.saveToFile()
+        
+        return { success: true, data: tokenData }
+    }
+
+    getApiTokens() {
+        return Array.from(this.apiTokens.values())
+            .map(t => ({
+                id: t.id,
+                name: t.name,
+                permissions: t.permissions,
+                createdAt: t.createdAt,
+                createdBy: t.createdBy,
+                lastUsedAt: t.lastUsedAt,
+                usageCount: t.usageCount
+            }))
+            .sort((a, b) => b.createdAt - a.createdAt)
+    }
+
+    getApiToken(id) {
+        return this.apiTokens.get(id) || null
+    }
+
+    validateApiToken(token) {
+        for (const [id, tokenData] of this.apiTokens) {
+            if (tokenData.token === token) {
+                tokenData.lastUsedAt = Date.now()
+                tokenData.usageCount = (tokenData.usageCount || 0) + 1
+                this.apiTokens.set(id, tokenData)
+                return { valid: true, tokenData }
+            }
+        }
+        return { valid: false }
+    }
+
+    async deleteApiToken(id, operator = 'system') {
+        const tokenData = this.apiTokens.get(id)
+        if (!tokenData) {
+            return { success: false, error: 'Token不存在' }
+        }
+        
+        this.apiTokens.delete(id)
+        await this.addLog('api_token_delete', `删除API Token: ${tokenData.name}`, operator)
+        await this.saveToFile()
+        
+        return { success: true }
+    }
+
+    async updateApiToken(id, updates, operator = 'system') {
+        const tokenData = this.apiTokens.get(id)
+        if (!tokenData) {
+            return { success: false, error: 'Token不存在' }
+        }
+        
+        if (updates.name) {
+            tokenData.name = updates.name
+        }
+        if (updates.permissions !== undefined) {
+            tokenData.permissions = updates.permissions
+        }
+        
+        this.apiTokens.set(id, tokenData)
+        await this.addLog('api_token_update', `更新API Token: ${tokenData.name}`, operator)
+        await this.saveToFile()
+        
+        return { success: true, data: tokenData }
     }
 }
 
