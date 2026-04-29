@@ -806,7 +806,9 @@ class DataStore {
         return {
             url: this.config.webhookUrl || null,
             enabled: this.config.webhookEnabled || false,
-            headers: this.config.webhookHeaders || {}
+            contentType: this.config.webhookContentType || 'application/json',
+            headers: this.config.webhookHeaders || {},
+            bodyTemplate: this.config.webhookBodyTemplate || null
         }
     }
 
@@ -820,6 +822,9 @@ class DataStore {
         if (config.enabled !== undefined) {
             this.config.webhookEnabled = config.enabled
         }
+        if (config.contentType !== undefined) {
+            this.config.webhookContentType = config.contentType || 'application/json'
+        }
         if (config.headers !== undefined) {
             if (typeof config.headers === 'string') {
                 try {
@@ -829,6 +834,18 @@ class DataStore {
                 }
             } else {
                 this.config.webhookHeaders = config.headers
+            }
+        }
+        if (config.bodyTemplate !== undefined) {
+            if (typeof config.bodyTemplate === 'string') {
+                try {
+                    JSON.parse(config.bodyTemplate)
+                    this.config.webhookBodyTemplate = config.bodyTemplate
+                } catch {
+                    return { success: false, error: 'Body模板JSON格式无效' }
+                }
+            } else {
+                this.config.webhookBodyTemplate = config.bodyTemplate ? JSON.stringify(config.bodyTemplate) : null
             }
         }
         

@@ -894,19 +894,31 @@ const getAdminHtml = () => `<!DOCTYPE html>
 
                     <div class="card">
                         <div class="card-header"><span class="card-title">Webhook通知设置</span></div>
-                        <form id="webhookForm" style="max-width: 400px;">
+                        <form id="webhookForm" style="max-width: 600px;">
                             <div class="form-group">
                                 <label class="checkbox-label"><input type="checkbox" id="webhookEnabled"> 启用Webhook通知</label>
                             </div>
                             <div class="form-group">
                                 <label>Webhook URL</label>
                                 <input type="text" id="webhookUrl" placeholder="https://example.com/webhook">
-                                <small>支持Gotify、企业微信、钉钉、飞书等</small>
                             </div>
                             <div class="form-group">
-                                <label>自定义Headers (JSON格式)</label>
+                                <label>Content-Type</label>
+                                <select id="webhookContentType" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:13px;">
+                                    <option value="application/json">application/json</option>
+                                    <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                                </select>
+                                <small>根据目标服务要求选择</small>
+                            </div>
+                            <div class="form-group">
+                                <label>自定义 Headers (JSON格式)</label>
                                 <textarea id="webhookHeaders" rows="3" placeholder='{"Authorization": "Bearer xxx"}'></textarea>
                                 <small>可选，用于添加认证等自定义请求头</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Body 模板 (JSON格式，可选)</label>
+                                <textarea id="webhookBodyTemplate" rows="5" placeholder='{"msgtype":"markdown","markdown":{"title":"{{title}}","text":"{{message}}"}}'></textarea>
+                                <small>留空使用默认格式。支持变量: {{title}}, {{message}}, {{priority}}, {{event}}, {{time}}</small>
                             </div>
                             <div class="form-row">
                                 <button type="submit" class="btn btn-primary">保存Webhook</button>
@@ -1527,8 +1539,14 @@ const getAdminHtml = () => `<!DOCTYPE html>
             if (webhookRes?.success) {
                 document.getElementById('webhookEnabled').checked = webhookRes.data.enabled;
                 document.getElementById('webhookUrl').value = webhookRes.data.url || '';
+                if (webhookRes.data.contentType) {
+                    document.getElementById('webhookContentType').value = webhookRes.data.contentType;
+                }
                 if (webhookRes.data.headers && Object.keys(webhookRes.data.headers).length > 0) {
                     document.getElementById('webhookHeaders').value = JSON.stringify(webhookRes.data.headers, null, 2);
+                }
+                if (webhookRes.data.bodyTemplate) {
+                    document.getElementById('webhookBodyTemplate').value = webhookRes.data.bodyTemplate;
                 }
             }
             if (logsRes?.success) {
@@ -1768,10 +1786,12 @@ const getAdminHtml = () => `<!DOCTYPE html>
             e.preventDefault();
             const enabled = document.getElementById('webhookEnabled').checked;
             const url = document.getElementById('webhookUrl').value.trim();
+            const contentType = document.getElementById('webhookContentType').value;
             const headersStr = document.getElementById('webhookHeaders').value.trim();
+            const bodyTemplateStr = document.getElementById('webhookBodyTemplate').value.trim();
             let headers = {};
             if (headersStr) { try { headers = JSON.parse(headersStr); } catch { showToast('Headers JSON格式无效', 'error'); return; } }
-            const res = await api('/admin/webhook', { method: 'PUT', body: JSON.stringify({ enabled, url, headers }) });
+            const res = await api('/admin/webhook', { method: 'PUT', body: JSON.stringify({ enabled, url, contentType, headers, bodyTemplate: bodyTemplateStr || undefined }) });
             if (res?.success) showToast('Webhook设置已保存');
             else showToast(res?.error || '保存失败', 'error');
         });

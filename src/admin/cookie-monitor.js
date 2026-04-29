@@ -200,22 +200,56 @@ class CookieMonitor {
             return { sent: false, reason: 'webhook_not_configured' }
         }
 
-        const message = {
+        const defaultBody = {
             message: data.message || '',
             title: data.title || 'Cookie监测通知',
             priority: data.priority || 5
         }
 
+        let body
+        if (webhookConfig.bodyTemplate) {
+            try {
+                const template = JSON.parse(webhookConfig.bodyTemplate)
+                const replacements = {
+                    title: data.title || '',
+                    message: (data.message || '').replace(/\n/g, '\\n'),
+                    priority: String(data.priority || 5),
+                    event: data.event || '',
+                    time: new Date().toLocaleString('zh-CN')
+                }
+                body = JSON.parse(
+                    JSON.stringify(template).replace(/\{\{(\w+)\}\}/g, (match, key) => {
+                        return replacements[key] !== undefined ? replacements[key] : match
+                    })
+                )
+            } catch {
+                body = defaultBody
+            }
+        } else {
+            body = defaultBody
+        }
+
         const headers = {
-            'Content-Type': 'application/json',
+            'Content-Type': webhookConfig.contentType || 'application/json',
             ...webhookConfig.headers
+        }
+
+        let bodyStr
+        if (headers['Content-Type'] === 'application/x-www-form-urlencoded') {
+            const params = new URLSearchParams()
+            for (const [key, value] of Object.entries(body)) {
+                params.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
+            }
+            bodyStr = params.toString()
+        } else {
+            bodyStr = JSON.stringify(body)
         }
 
         try {
             const response = await fetch(webhookConfig.url, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(message)
+                body: bodyStr
             })
 
             const success = response.ok
@@ -225,7 +259,7 @@ class CookieMonitor {
                 success: success,
                 url: webhookConfig.url,
                 statusCode: response.status,
-                eventData: message
+                eventData: body
             })
 
             if (success) {
